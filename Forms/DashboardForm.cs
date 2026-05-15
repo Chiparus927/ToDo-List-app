@@ -1,323 +1,470 @@
+using ToDoListApp.Controls;
 using ToDoListApp.Models;
 using ToDoListApp.Services;
 using ToDoListApp.Utils;
 
 namespace ToDoListApp.Forms;
 
-public class DashboardForm : Form
+public class DashboardForm : Form, IThemeAware
 {
     private readonly TaskService _taskService;
     private readonly UserModel _user;
-    private readonly DataGridView _grid = new();
     private readonly ComboBox _cmbStatusFilter = new();
     private readonly ComboBox _cmbCategoryFilter = new();
     private readonly TextBox _txtSearch = new();
-    private readonly Label _lblStats = new();
+    private readonly Label _lblTotal = new();
+    private readonly Label _lblCompleted = new();
+    private readonly Label _lblPending = new();
+    private readonly FlowLayoutPanel _taskList = new();
     private readonly Panel _emptyState = new();
     private readonly Button _btnUserMenu = new();
     private readonly Panel _userMenuPanel = new();
     private List<CategoryModel> _categories = new();
     private List<TaskModel> _tasks = new();
+    private TaskModel? _selectedTask;
 
     public DashboardForm(TaskService taskService, UserModel user)
     {
         _taskService = taskService;
         _user = user;
+        AppTheme.ApplyUserSettings(new UserSettingsService().Load(user.Id));
         Text = $"ToDo List - {_user.FullName}";
         WindowState = FormWindowState.Maximized;
+        AppTheme.StyleForm(this, new Size(1180, 760));
         InitializeComponents();
         LoadData();
     }
 
     private void InitializeComponents()
     {
-        BackColor = Color.White;
-
-        var sidebar = new Panel
-        {
-            Dock = DockStyle.Left,
-            Width = 350,
-            BackColor = AppTheme.Sidebar
-        };
-
-        sidebar.Controls.AddRange([
-            new Label
-            {
-                Text = "ToDo List",
-                ForeColor = AppTheme.Primary,
-                Font = new Font("Segoe UI", 22f, FontStyle.Bold),
-                AutoSize = true,
-                Location = new Point(34, 34)
-            },
-            AppTheme.CreateNavButton("All Tasks", 126, (_, _) => ResetFilters(), true),
-            AppTheme.CreateNavButton("Completed", 178, (_, _) => SelectStatus("Completed")),
-            AppTheme.CreateNavButton("Active", 224, (_, _) => SelectStatus("Active")),
-            AppTheme.CreateNavButton("+ Add task", 292, (_, _) => AddTask(), true),
-            AppTheme.CreateNavButton("Edit task", 344, (_, _) => EditTask()),
-            AppTheme.CreateNavButton("Delete task", 390, (_, _) => DeleteTask()),
-            AppTheme.CreateNavButton("Settings", 490, (_, _) => OpenSettings())
-        ]);
-
-        var projectTitle = new Label
-        {
-            Text = "My Projects",
-            Location = new Point(20, 610),
-            AutoSize = true,
-            Font = new Font("Segoe UI", 10.5f, FontStyle.Bold),
-            ForeColor = AppTheme.TextMuted
-        };
-        var project = new Label
-        {
-            Text = "# Personal tasks",
-            Location = new Point(28, 646),
-            AutoSize = true,
-            Font = new Font("Segoe UI", 10.5f),
-            ForeColor = AppTheme.TextPrimary
-        };
-        sidebar.Controls.AddRange([projectTitle, project]);
-
+        var sidebar = CreateSidebar();
         var contentPanel = new Panel
         {
             Dock = DockStyle.Fill,
-            Padding = new Padding(48, 36, 48, 36),
-            BackColor = Color.White
+            Padding = new Padding(42, 38, 42, 30),
+            BackColor = AppTheme.Background
         };
+        contentPanel.Paint += (_, e) => PaintBackground(e.Graphics, contentPanel.ClientRectangle);
 
-        var headerTitle = new Label
+        var topBar = new Panel { Location = new Point(28, 0), Size = new Size(1100, 104), BackColor = AppTheme.Background };
+        var title = new Label
         {
-            Text = "All Tasks",
-            Font = new Font("Segoe UI", 20, FontStyle.Bold),
+            Text = $"Welcome, {_user.FullName}!",
+            Font = new Font("Segoe UI", 27, FontStyle.Bold),
             AutoSize = true,
-            Location = new Point(0, 40),
+            Location = new Point(0, 0),
             ForeColor = AppTheme.TextPrimary
         };
-
-        var topBar = new Panel
+        var subtitle = new Label
         {
-            Location = new Point(0, 0),
-            Size = new Size(1100, 112),
-            BackColor = Color.White
-        };
-
-        var filterBar = new Panel
-        {
-            Location = new Point(0, 124),
-            Size = new Size(1100, 54),
-            BackColor = Color.White
+            Text = "My Tasks",
+            Font = new Font("Segoe UI", 10.5f),
+            AutoSize = true,
+            Location = new Point(4, 64),
+            ForeColor = AppTheme.TextMuted
         };
 
         _txtSearch.PlaceholderText = "Search tasks...";
-        _txtSearch.Width = 376;
-        _txtSearch.Location = new Point(640, 42);
-        AppTheme.StyleComfortSingleLineTextBox(_txtSearch);
-        _txtSearch.TextChanged += (_, _) => RefreshGrid();
+        var searchRow = AppTheme.CreateSearchBox(_txtSearch, 360);
+        searchRow.Location = new Point(560, 18);
+        _txtSearch.TextChanged += (_, _) => RefreshTaskCards();
 
         ConfigureUserMenuButton();
         ConfigureUserMenuPanel();
+        topBar.Controls.AddRange([title, subtitle, searchRow, _btnUserMenu]);
+
+        var statsPanel = new Panel { Location = new Point(28, 124), Size = new Size(1100, 112), BackColor = AppTheme.Background };
+        statsPanel.Controls.AddRange([
+            CreateStatCard(_lblPending, "Folder", Color.FromArgb(238, 250, 243), AppTheme.Success, new Point(0, 0)),
+            CreateStatCard(_lblCompleted, "Check", Color.FromArgb(255, 248, 232), AppTheme.Warning, new Point(236, 0)),
+            CreateStatCard(_lblTotal, "List", Color.FromArgb(238, 246, 255), AppTheme.Primary, new Point(472, 0))
+        ]);
 
         _cmbStatusFilter.Items.AddRange(["All", "Active", "Completed"]);
         _cmbStatusFilter.SelectedIndex = 0;
-        _cmbStatusFilter.DropDownStyle = ComboBoxStyle.DropDownList;
-        _cmbStatusFilter.FlatStyle = FlatStyle.Flat;
-        _cmbStatusFilter.BackColor = AppTheme.Input;
-        _cmbStatusFilter.Font = new Font("Segoe UI", 10.5f);
-        _cmbStatusFilter.Width = 150;
-        _cmbStatusFilter.Height = 42;
-        _cmbStatusFilter.Location = new Point(0, 8);
-        _cmbStatusFilter.SelectedIndexChanged += (_, _) => RefreshGrid();
+        StyleCombo(_cmbStatusFilter, 150);
+        _cmbStatusFilter.Location = new Point(0, 12);
+        _cmbStatusFilter.SelectedIndexChanged += (_, _) => RefreshTaskCards();
 
-        _cmbCategoryFilter.DropDownStyle = ComboBoxStyle.DropDownList;
-        _cmbCategoryFilter.FlatStyle = FlatStyle.Flat;
-        _cmbCategoryFilter.BackColor = AppTheme.Input;
-        _cmbCategoryFilter.Font = new Font("Segoe UI", 10.5f);
-        _cmbCategoryFilter.Width = 190;
-        _cmbCategoryFilter.Height = 42;
-        _cmbCategoryFilter.Location = new Point(166, 8);
-        _cmbCategoryFilter.SelectedIndexChanged += (_, _) => RefreshGrid();
+        StyleCombo(_cmbCategoryFilter, 210);
+        _cmbCategoryFilter.Location = new Point(166, 12);
+        _cmbCategoryFilter.SelectedIndexChanged += (_, _) => RefreshTaskCards();
 
-        _lblStats.Location = new Point(380, 18);
-        _lblStats.AutoSize = true;
-        _lblStats.Font = new Font("Segoe UI", 10.5f);
-        _lblStats.ForeColor = AppTheme.TextMuted;
-
-        var gridHost = new Panel
+        var filterBar = new Panel { Location = new Point(28, 260), Size = new Size(1100, 66), BackColor = AppTheme.Background };
+        var filterPanel = new RoundedPanel
         {
-            Location = new Point(0, 200),
-            Size = new Size(900, 420),
-            BackColor = Color.White
+            Location = new Point(0, 4),
+            Size = new Size(282, 52),
+            Radius = 20,
+            DrawShadow = false,
+            BackColor = AppTheme.Background,
+            BorderColor = AppTheme.Background,
+            Padding = new Padding(6)
+        };
+        _cmbCategoryFilter.Location = new Point(16, 10);
+        _cmbCategoryFilter.Width = 250;
+        _cmbCategoryFilter.BackColor = AppTheme.Surface;
+        _cmbCategoryFilter.ForeColor = AppTheme.TextPrimary;
+        filterPanel.Controls.Add(_cmbCategoryFilter);
+        filterBar.Controls.Add(filterPanel);
+
+        var listHost = new RoundedPanel
+        {
+            Location = new Point(28, 342),
+            Size = new Size(1100, 420),
+            Padding = new Padding(18),
+            Radius = 26,
+            BackColor = AppTheme.Surface,
+            BorderColor = AppTheme.Border
         };
 
-        _grid.Dock = DockStyle.Fill;
-        AppTheme.StyleGrid(_grid);
-        _grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Title", DataPropertyName = "Title", Width = 280 });
-        _grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Description", DataPropertyName = "Description", Width = 340 });
-        _grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Category", DataPropertyName = "CategoryName", Width = 130 });
-        _grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Due Date", DataPropertyName = "DueDate", Width = 130 });
-        _grid.Columns.Add(new DataGridViewCheckBoxColumn { HeaderText = "Done", DataPropertyName = "IsCompleted", Name = "Done", Width = 90 });
-        _grid.CellClick += (_, e) => ToggleTaskDone(e);
+        _taskList.Dock = DockStyle.Fill;
+        _taskList.AutoScroll = true;
+        _taskList.FlowDirection = FlowDirection.TopDown;
+        _taskList.WrapContents = false;
+        _taskList.BackColor = AppTheme.Surface;
+        listHost.Controls.Add(_taskList);
 
         CreateEmptyState();
-        topBar.Controls.AddRange([headerTitle, _txtSearch, _btnUserMenu]);
-        filterBar.Controls.AddRange([_cmbStatusFilter, _cmbCategoryFilter, _lblStats]);
-        gridHost.Controls.Add(_grid);
-        contentPanel.Controls.AddRange([topBar, filterBar, gridHost, _emptyState, _userMenuPanel]);
+        contentPanel.Controls.AddRange([topBar, statsPanel, filterBar, listHost, _emptyState, _userMenuPanel]);
 
         void LayoutMainArea()
         {
-            var w = contentPanel.ClientSize.Width;
+            const int leftGap = 28;
+            const int rightGap = 20;
+            var w = Math.Max(520, contentPanel.ClientSize.Width - leftGap - rightGap);
             var h = contentPanel.ClientSize.Height;
-            topBar.Width = w;
-            filterBar.Width = w;
-            _btnUserMenu.Left = Math.Max(310, w - _btnUserMenu.Width - 8);
-            _txtSearch.Left = Math.Max(260, _btnUserMenu.Left - _txtSearch.Width - 16);
-            _userMenuPanel.Left = Math.Max(0, _btnUserMenu.Right - _userMenuPanel.Width);
-            _userMenuPanel.Top = topBar.Bottom + 2;
+            topBar.SetBounds(leftGap, 0, w, 104);
+            _btnUserMenu.Left = Math.Max(320, w - _btnUserMenu.Width - 2);
+            searchRow.Left = Math.Max(300, _btnUserMenu.Left - searchRow.Width - 16);
+            _userMenuPanel.Left = leftGap + Math.Max(0, _btnUserMenu.Right - _userMenuPanel.Width);
+            _userMenuPanel.Top = topBar.Bottom - 4;
+            statsPanel.SetBounds(leftGap, 124, w, 112);
+            PositionCards(statsPanel, w);
+            filterBar.SetBounds(leftGap, 260, w, 66);
+            listHost.SetBounds(leftGap, 342, w, Math.Max(260, h - 342));
+            ResizeTaskCards();
+            _emptyState.SetBounds(leftGap + Math.Max(0, (w - 390) / 2), Math.Max(350, (h - 230) / 2), 390, 230);
             _userMenuPanel.BringToFront();
-            gridHost.SetBounds(0, 200, w, Math.Max(220, h - 200));
-            _emptyState.SetBounds(Math.Max(0, (w - 360) / 2), Math.Max(170, (h - 260) / 2), 360, 220);
         }
 
         contentPanel.Resize += (_, _) => LayoutMainArea();
         contentPanel.HandleCreated += (_, _) => LayoutMainArea();
-
         Controls.Add(contentPanel);
         Controls.Add(sidebar);
+    }
+
+    private Panel CreateSidebar()
+    {
+        var sidebar = new Panel { Dock = DockStyle.Left, Width = 332, BackColor = AppTheme.Sidebar };
+        sidebar.Controls.AddRange([
+            new Label
+            {
+                Text = "Reminders",
+                ForeColor = AppTheme.TextPrimary,
+                Font = new Font("Segoe UI", 21f, FontStyle.Bold),
+                AutoSize = true,
+                Location = new Point(30, 28)
+            },
+            new Label
+            {
+                Text = "Productivity",
+                ForeColor = AppTheme.TextMuted,
+                Font = new Font("Segoe UI", 9.5f),
+                AutoSize = true,
+                Location = new Point(32, 78)
+            },
+            AppTheme.CreateNavButton("All Tasks", 138, (_, _) => ResetFilters(), true),
+            AppTheme.CreateNavButton("Active", 192, (_, _) => SelectStatus("Active")),
+            AppTheme.CreateNavButton("Completed", 246, (_, _) => SelectStatus("Completed")),
+            AppTheme.CreateNavButton("Settings", 300, (_, _) => OpenSettings()),
+            AppTheme.CreateNavButton("+ Add task", 388, (_, _) => AddTask(), true),
+            AppTheme.CreateNavButton("Edit task", 442, (_, _) => EditTask()),
+            AppTheme.CreateNavButton("Delete task", 496, (_, _) => DeleteTask())
+        ]);
+        return sidebar;
+    }
+
+    private static RoundedPanel CreateStatCard(Label valueLabel, string label, Color background, Color accent, Point location)
+    {
+        var card = new RoundedPanel
+        {
+            Location = location,
+            Size = new Size(220, 104),
+            Radius = 24,
+            BackColor = AppTheme.IsDarkMode ? AppTheme.SoftSurface : background,
+            BorderColor = AppTheme.Border
+        };
+        var mini = new BadgeLabel
+        {
+            Text = label,
+            Location = new Point(18, 18),
+            Width = 70,
+            BackColor = AppTheme.IsDarkMode ? AppTheme.Input : Color.White,
+            ForeColor = accent
+        };
+        valueLabel.Text = "0";
+        valueLabel.Location = new Point(96, 34);
+        valueLabel.AutoSize = true;
+        valueLabel.Font = new Font("Segoe UI", 30f, FontStyle.Bold);
+        valueLabel.ForeColor = accent;
+        card.Controls.AddRange([mini, valueLabel]);
+        return card;
+    }
+
+    private static Button CreateFilterPill(string text, Point location, int width, EventHandler click)
+    {
+        var button = new Button
+        {
+            Text = text,
+            Location = location,
+            Size = new Size(width, 40),
+            FlatStyle = FlatStyle.Flat,
+            BackColor = AppTheme.Input,
+            ForeColor = AppTheme.TextPrimary,
+            Font = new Font("Segoe UI Semibold", 9.5f, FontStyle.Bold),
+            Cursor = Cursors.Hand
+        };
+        button.FlatAppearance.BorderSize = 0;
+        button.MouseEnter += (_, _) => button.BackColor = AppTheme.PrimarySoft;
+        button.MouseLeave += (_, _) => button.BackColor = AppTheme.Input;
+        button.Resize += (_, _) => AppTheme.ApplyRoundedRegion(button, 15);
+        button.HandleCreated += (_, _) => AppTheme.ApplyRoundedRegion(button, 15);
+        button.Click += click;
+        return button;
+    }
+
+    private static void PositionCards(Panel statsPanel, int availableWidth)
+    {
+        var cards = statsPanel.Controls.OfType<Panel>().ToList();
+        var gap = 18;
+        var cardWidth = Math.Max(196, Math.Min(270, (availableWidth - gap * 2) / 3));
+        for (var i = 0; i < cards.Count; i++)
+        {
+            cards[i].SetBounds(i * (cardWidth + gap), 0, cardWidth, 104);
+        }
+    }
+
+    private static void StyleCombo(ComboBox combo, int width)
+    {
+        combo.DropDownStyle = ComboBoxStyle.DropDownList;
+        combo.FlatStyle = FlatStyle.Flat;
+        combo.BackColor = AppTheme.Input;
+        combo.ForeColor = AppTheme.TextPrimary;
+        combo.Font = new Font("Segoe UI Semibold", 10f, FontStyle.Bold);
+        combo.Width = width;
+        combo.Height = 34;
     }
 
     private void ConfigureUserMenuButton()
     {
         var initial = string.IsNullOrWhiteSpace(_user.FullName) ? "U" : _user.FullName.Trim()[0].ToString().ToUpperInvariant();
         _btnUserMenu.Text = initial;
-        _btnUserMenu.Size = new Size(46, 46);
-        _btnUserMenu.Location = new Point(1034, 42);
+        _btnUserMenu.Size = new Size(48, 48);
+        _btnUserMenu.Location = new Point(1034, 18);
         _btnUserMenu.FlatStyle = FlatStyle.Flat;
         _btnUserMenu.FlatAppearance.BorderSize = 0;
         _btnUserMenu.BackColor = AppTheme.Primary;
         _btnUserMenu.ForeColor = Color.White;
         _btnUserMenu.Font = new Font("Segoe UI", 14f, FontStyle.Bold);
         _btnUserMenu.Cursor = Cursors.Hand;
-        _btnUserMenu.Paint += (_, e) =>
-        {
-            using var path = new System.Drawing.Drawing2D.GraphicsPath();
-            path.AddEllipse(0, 0, _btnUserMenu.Width - 1, _btnUserMenu.Height - 1);
-            _btnUserMenu.Region = new Region(path);
-        };
+        _btnUserMenu.Resize += (_, _) => AppTheme.ApplyRoundedRegion(_btnUserMenu, 24);
+        _btnUserMenu.HandleCreated += (_, _) => AppTheme.ApplyRoundedRegion(_btnUserMenu, 24);
         _btnUserMenu.Click += (_, _) => _userMenuPanel.Visible = !_userMenuPanel.Visible;
     }
 
     private void ConfigureUserMenuPanel()
     {
-        _userMenuPanel.Size = new Size(180, 110);
-        _userMenuPanel.Location = new Point(900, 78);
-        _userMenuPanel.BackColor = Color.White;
-        _userMenuPanel.BorderStyle = BorderStyle.FixedSingle;
+        _userMenuPanel.Size = new Size(210, 116);
+        _userMenuPanel.BackColor = AppTheme.Surface;
+        AppTheme.ApplyCardChrome(_userMenuPanel, 18);
         _userMenuPanel.Visible = false;
-        _userMenuPanel.BringToFront();
 
         var name = new Label
         {
-            Text = ShortText(_user.FullName, 22),
+            Text = ShortText(_user.FullName, 24),
             Location = new Point(16, 14),
-            Size = new Size(148, 30),
-            Font = new Font("Segoe UI", 10.5f),
-            ForeColor = AppTheme.TextMuted,
+            Size = new Size(178, 30),
+            Font = new Font("Segoe UI Semibold", 10.5f, FontStyle.Bold),
+            ForeColor = AppTheme.TextPrimary,
             TextAlign = ContentAlignment.MiddleLeft
         };
-
-        var separator = new Panel
-        {
-            Location = new Point(0, 54),
-            Size = new Size(180, 1),
-            BackColor = AppTheme.Border
-        };
-
         var logout = new Button
         {
             Text = "Logout",
-            Location = new Point(0, 56),
-            Size = new Size(178, 52),
+            Location = new Point(12, 58),
+            Size = new Size(186, 42),
             FlatStyle = FlatStyle.Flat,
-            BackColor = Color.White,
+            BackColor = AppTheme.Input,
             ForeColor = AppTheme.TextPrimary,
             Font = new Font("Segoe UI", 10.5f),
             TextAlign = ContentAlignment.MiddleLeft,
-            Padding = new Padding(18, 0, 0, 0),
+            Padding = new Padding(16, 0, 0, 0),
             Cursor = Cursors.Hand
         };
         logout.FlatAppearance.BorderSize = 0;
         logout.MouseEnter += (_, _) => logout.BackColor = AppTheme.PrimarySoft;
-        logout.MouseLeave += (_, _) => logout.BackColor = Color.White;
+        logout.MouseLeave += (_, _) => logout.BackColor = AppTheme.Input;
         logout.Click += (_, _) => Logout();
-
-        _userMenuPanel.Controls.AddRange([name, separator, logout]);
-    }
-
-    private Label CreateAvatar()
-    {
-        var initial = string.IsNullOrWhiteSpace(_user.FullName) ? "U" : _user.FullName.Trim()[0].ToString().ToUpperInvariant();
-        return new Label
-        {
-            Text = initial,
-            TextAlign = ContentAlignment.MiddleCenter,
-            Font = new Font("Segoe UI", 12, FontStyle.Bold),
-            ForeColor = Color.White,
-            BackColor = Color.FromArgb(82, 183, 172),
-            Location = new Point(20, 20),
-            Size = new Size(34, 34)
-        };
+        logout.Resize += (_, _) => AppTheme.ApplyRoundedRegion(logout, 13);
+        logout.HandleCreated += (_, _) => AppTheme.ApplyRoundedRegion(logout, 13);
+        _userMenuPanel.Controls.AddRange([name, logout]);
     }
 
     private void CreateEmptyState()
     {
-        _emptyState.BackColor = Color.White;
+        _emptyState.BackColor = AppTheme.Surface;
         _emptyState.Visible = false;
+        AppTheme.ApplyCardChrome(_emptyState, 24);
 
-        var icon = new Label
-        {
-            Text = "[]",
-            TextAlign = ContentAlignment.MiddleCenter,
-            Font = new Font("Segoe UI", 42, FontStyle.Bold),
-            ForeColor = Color.FromArgb(255, 202, 82),
-            Location = new Point(130, 0),
-            Size = new Size(100, 70)
-        };
         var title = new Label
         {
-            Text = "Capture now, plan later",
+            Text = "Nothing here yet",
             TextAlign = ContentAlignment.MiddleCenter,
-            Font = new Font("Segoe UI", 13, FontStyle.Bold),
+            Font = new Font("Segoe UI", 15, FontStyle.Bold),
             ForeColor = AppTheme.TextPrimary,
-            Location = new Point(0, 86),
-            Size = new Size(360, 28)
+            Location = new Point(0, 44),
+            Size = new Size(390, 34)
         };
         var hint = new Label
         {
-            Text = "Inbox is your place for quick task entry. Add a task and organize it when you are ready.",
+            Text = "Add a task and it will appear in this workspace.",
             TextAlign = ContentAlignment.MiddleCenter,
             Font = new Font("Segoe UI", 10.5f),
             ForeColor = AppTheme.TextMuted,
-            Location = new Point(20, 120),
-            Size = new Size(320, 52)
+            Location = new Point(36, 88),
+            Size = new Size(318, 44)
         };
-        var add = new Button
-        {
-            Text = "+ Add task",
-            Location = new Point(112, 184),
-            Size = new Size(136, 38)
-        };
-        AppTheme.StylePrimaryButton(add);
+        var add = new GradientButton { Text = "+ Add task", Location = new Point(124, 154), Size = new Size(142, 44) };
         add.Click += (_, _) => AddTask();
-        _emptyState.Controls.AddRange([icon, title, hint, add]);
+        _emptyState.Controls.AddRange([title, hint, add]);
     }
 
-    private static string ShortText(string text, int maxLength)
+    private void LoadData()
     {
-        if (string.IsNullOrWhiteSpace(text) || text.Length <= maxLength)
+        try
         {
-            return text;
+            _categories = _taskService.GetCategories();
+            var categoryFilterSource = new List<CategoryModel> { new() { Id = 0, Name = "All Categories" } };
+            categoryFilterSource.AddRange(_categories);
+            _cmbCategoryFilter.DataSource = categoryFilterSource;
+            _cmbCategoryFilter.DisplayMember = "Name";
+            _cmbCategoryFilter.ValueMember = "Id";
+            RefreshTaskCards();
+        }
+        catch (Exception ex)
+        {
+            Helpers.ShowError($"Could not load data: {ex.Message}");
+        }
+    }
+
+    private void RefreshTaskCards()
+    {
+        if (_cmbCategoryFilter.DataSource is null)
+        {
+            return;
         }
 
-        return text[..(maxLength - 3)] + "...";
+        var status = _cmbStatusFilter.SelectedItem?.ToString() ?? "All";
+        var search = _txtSearch.Text.Trim();
+        var selectedCategoryId = Convert.ToInt32(_cmbCategoryFilter.SelectedValue ?? 0);
+        int? categoryId = selectedCategoryId == 0 ? null : selectedCategoryId;
+
+        _tasks = _taskService.GetTasks(_user.Id, status, search, categoryId);
+        _selectedTask = null;
+        _taskList.SuspendLayout();
+        _taskList.Controls.Clear();
+        foreach (var task in _tasks)
+        {
+            var card = new TaskCardControl(task);
+            card.SelectedTask += (_, selected) => SelectTask(selected);
+            card.ToggleCompleted += (_, selected) => ToggleTaskDone(selected);
+            _taskList.Controls.Add(card);
+        }
+        ResizeTaskCards();
+        _taskList.ResumeLayout();
+
+        var completed = _tasks.Count(t => t.IsCompleted);
+        var active = _tasks.Count - completed;
+        _lblTotal.Text = _tasks.Count.ToString();
+        _lblCompleted.Text = completed.ToString();
+        _lblPending.Text = active.ToString();
+        _emptyState.Visible = _tasks.Count == 0;
+        _taskList.Visible = _tasks.Count > 0;
+    }
+
+    public void ApplyTheme()
+    {
+        BackColor = AppTheme.Background;
+        _taskList.BackColor = AppTheme.Surface;
+        _emptyState.BackColor = AppTheme.Surface;
+        _userMenuPanel.BackColor = AppTheme.Surface;
+        _cmbCategoryFilter.BackColor = AppTheme.Input;
+        _cmbCategoryFilter.ForeColor = AppTheme.TextPrimary;
+        RestyleStatCards(this);
+        RefreshTaskCards();
+    }
+
+    private static void RestyleStatCards(Control root)
+    {
+        foreach (Control control in root.Controls)
+        {
+            if (control is RoundedPanel card)
+            {
+                var badge = card.Controls.OfType<BadgeLabel>().FirstOrDefault();
+                if (badge is not null)
+                {
+                    var accent = badge.Text switch
+                    {
+                        "Folder" => AppTheme.Success,
+                        "Check" => AppTheme.Warning,
+                        "List" => AppTheme.Primary,
+                        _ => AppTheme.Primary
+                    };
+                    var background = badge.Text switch
+                    {
+                        "Folder" => Color.FromArgb(238, 250, 243),
+                        "Check" => Color.FromArgb(255, 248, 232),
+                        "List" => Color.FromArgb(238, 246, 255),
+                        _ => AppTheme.Surface
+                    };
+                    card.BackColor = AppTheme.IsDarkMode ? AppTheme.SoftSurface : background;
+                    card.BorderColor = AppTheme.Border;
+                    badge.BackColor = AppTheme.IsDarkMode ? AppTheme.Input : Color.White;
+                    badge.ForeColor = accent;
+                }
+            }
+
+            if (control.HasChildren)
+            {
+                RestyleStatCards(control);
+            }
+        }
+    }
+
+    private void ResizeTaskCards()
+    {
+        var width = Math.Max(360, _taskList.ClientSize.Width - 24);
+        foreach (TaskCardControl card in _taskList.Controls.OfType<TaskCardControl>())
+        {
+            card.Width = width;
+        }
+    }
+
+    private void SelectTask(TaskModel task)
+    {
+        _selectedTask = task;
+        foreach (TaskCardControl card in _taskList.Controls.OfType<TaskCardControl>())
+        {
+            card.SetSelected(card.TaskId == task.Id);
+        }
+    }
+
+    private void ToggleTaskDone(TaskModel task)
+    {
+        task.IsCompleted = !task.IsCompleted;
+        _taskService.UpdateTask(task);
+        RefreshTaskCards();
     }
 
     private void ResetFilters()
@@ -340,64 +487,6 @@ public class DashboardForm : Form
         }
     }
 
-    private void LoadData()
-    {
-        try
-        {
-            _categories = _taskService.GetCategories();
-            var categoryFilterSource = new List<CategoryModel> { new() { Id = 0, Name = "All Categories" } };
-            categoryFilterSource.AddRange(_categories);
-            _cmbCategoryFilter.DataSource = categoryFilterSource;
-            _cmbCategoryFilter.DisplayMember = "Name";
-            _cmbCategoryFilter.ValueMember = "Id";
-            RefreshGrid();
-        }
-        catch (Exception ex)
-        {
-            Helpers.ShowError($"Could not load data: {ex.Message}");
-        }
-    }
-
-    private void RefreshGrid()
-    {
-        var status = _cmbStatusFilter.SelectedItem?.ToString() ?? "All";
-        var search = _txtSearch.Text.Trim();
-        var selectedCategoryId = Convert.ToInt32(_cmbCategoryFilter.SelectedValue ?? 0);
-        int? categoryId = selectedCategoryId == 0 ? null : selectedCategoryId;
-
-        _tasks = _taskService.GetTasks(_user.Id, status, search, categoryId);
-        _grid.DataSource = null;
-        _grid.DataSource = _tasks;
-
-        var completed = _tasks.Count(t => t.IsCompleted);
-        var active = _tasks.Count - completed;
-        _lblStats.Text = $"Total: {_tasks.Count} | Active: {active} | Completed: {completed}";
-        _emptyState.Visible = _tasks.Count == 0;
-        _grid.Visible = _tasks.Count > 0;
-    }
-
-    private TaskModel? GetSelectedTask()
-    {
-        return _grid.CurrentRow?.DataBoundItem as TaskModel;
-    }
-
-    private void ToggleTaskDone(DataGridViewCellEventArgs e)
-    {
-        if (e.RowIndex < 0 || _grid.Columns[e.ColumnIndex].Name != "Done")
-        {
-            return;
-        }
-
-        if (_grid.Rows[e.RowIndex].DataBoundItem is not TaskModel task)
-        {
-            return;
-        }
-
-        task.IsCompleted = !task.IsCompleted;
-        _taskService.UpdateTask(task);
-        RefreshGrid();
-    }
-
     private void AddTask()
     {
         using var addForm = new AddTaskForm(_categories);
@@ -408,32 +497,30 @@ public class DashboardForm : Form
 
         addForm.CreatedTask.UserId = _user.Id;
         _taskService.AddTask(addForm.CreatedTask);
-        RefreshGrid();
+        RefreshTaskCards();
     }
 
     private void EditTask()
     {
-        var selected = GetSelectedTask();
-        if (selected is null)
+        if (_selectedTask is null)
         {
             Helpers.ShowInfo("Select a task to edit.");
             return;
         }
 
-        using var editForm = new EditTaskForm(selected, _categories);
+        using var editForm = new EditTaskForm(_selectedTask, _categories);
         if (editForm.ShowDialog(this) != DialogResult.OK || editForm.UpdatedTask is null)
         {
             return;
         }
 
         _taskService.UpdateTask(editForm.UpdatedTask);
-        RefreshGrid();
+        RefreshTaskCards();
     }
 
     private void DeleteTask()
     {
-        var selected = GetSelectedTask();
-        if (selected is null)
+        if (_selectedTask is null)
         {
             Helpers.ShowInfo("Select a task to delete.");
             return;
@@ -445,32 +532,34 @@ public class DashboardForm : Form
             return;
         }
 
-        _taskService.DeleteTask(selected.Id, _user.Id);
-        RefreshGrid();
-    }
-
-    private void MarkCompleted()
-    {
-        var selected = GetSelectedTask();
-        if (selected is null)
-        {
-            Helpers.ShowInfo("Select a task to mark completed.");
-            return;
-        }
-
-        selected.IsCompleted = true;
-        _taskService.UpdateTask(selected);
-        RefreshGrid();
+        _taskService.DeleteTask(_selectedTask.Id, _user.Id);
+        RefreshTaskCards();
     }
 
     private void OpenSettings()
     {
-        using var settings = new SettingsForm();
+        using var settings = new SettingsForm(_user);
         settings.ShowDialog(this);
     }
 
     private void Logout()
     {
         Application.Restart();
+    }
+
+    private static string ShortText(string text, int maxLength)
+    {
+        if (string.IsNullOrWhiteSpace(text) || text.Length <= maxLength)
+        {
+            return text;
+        }
+
+        return text[..(maxLength - 3)] + "...";
+    }
+
+    private static void PaintBackground(Graphics graphics, Rectangle bounds)
+    {
+        using var brush = new System.Drawing.Drawing2D.LinearGradientBrush(bounds, AppTheme.Background, AppTheme.Background, 90f);
+        graphics.FillRectangle(brush, bounds);
     }
 }

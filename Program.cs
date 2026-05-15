@@ -3,6 +3,7 @@ using System.Windows.Forms;
 using ToDoListApp.Database;
 using ToDoListApp.Forms;
 using ToDoListApp.Services;
+using ToDoListApp.Utils;
 
 namespace ToDoListApp;
 
@@ -33,6 +34,7 @@ internal static class Program
         var authService = new AuthService(userRepository);
         var taskService = new TaskService(taskRepository);
         var adminService = new AdminService(userRepository, taskRepository);
+        AppTheme.ApplyUserSettings(new UserSettingsService().LoadLastUsedTheme());
 
         Application.Run(new LoginForm(authService, taskService, adminService));
     }
