@@ -220,6 +220,7 @@ public class DashboardForm : Form, IThemeAware
             Location = location,
             Size = new Size(width, 40),
             FlatStyle = FlatStyle.Flat,
+            UseVisualStyleBackColor = false,
             BackColor = AppTheme.Input,
             ForeColor = AppTheme.TextPrimary,
             Font = new Font("Segoe UI Semibold", 9.5f, FontStyle.Bold),
@@ -258,19 +259,19 @@ public class DashboardForm : Form, IThemeAware
 
     private void ConfigureUserMenuButton()
     {
-        var initial = string.IsNullOrWhiteSpace(_user.FullName) ? "U" : _user.FullName.Trim()[0].ToString().ToUpperInvariant();
-        _btnUserMenu.Text = initial;
-        _btnUserMenu.Size = new Size(48, 48);
-        _btnUserMenu.Location = new Point(1034, 18);
+        _btnUserMenu.Size = new Size(54, 54);
+        _btnUserMenu.Location = new Point(1028, 15);
         _btnUserMenu.FlatStyle = FlatStyle.Flat;
+        _btnUserMenu.UseVisualStyleBackColor = false;
         _btnUserMenu.FlatAppearance.BorderSize = 0;
         _btnUserMenu.BackColor = AppTheme.Primary;
         _btnUserMenu.ForeColor = Color.White;
         _btnUserMenu.Font = new Font("Segoe UI", 14f, FontStyle.Bold);
         _btnUserMenu.Cursor = Cursors.Hand;
-        _btnUserMenu.Resize += (_, _) => AppTheme.ApplyRoundedRegion(_btnUserMenu, 24);
-        _btnUserMenu.HandleCreated += (_, _) => AppTheme.ApplyRoundedRegion(_btnUserMenu, 24);
+        _btnUserMenu.Resize += (_, _) => AppTheme.ApplyRoundedRegion(_btnUserMenu, 27);
+        _btnUserMenu.HandleCreated += (_, _) => AppTheme.ApplyRoundedRegion(_btnUserMenu, 27);
         _btnUserMenu.Click += (_, _) => _userMenuPanel.Visible = !_userMenuPanel.Visible;
+        RefreshUserMenuButton();
     }
 
     private void ConfigureUserMenuPanel()
@@ -295,6 +296,7 @@ public class DashboardForm : Form, IThemeAware
             Location = new Point(12, 58),
             Size = new Size(186, 42),
             FlatStyle = FlatStyle.Flat,
+            UseVisualStyleBackColor = false,
             BackColor = AppTheme.Input,
             ForeColor = AppTheme.TextPrimary,
             Font = new Font("Segoe UI", 10.5f),
@@ -403,6 +405,7 @@ public class DashboardForm : Form, IThemeAware
         _cmbCategoryFilter.ForeColor = AppTheme.TextPrimary;
         RestyleStatCards(this);
         RefreshTaskCards();
+        RefreshUserMenuButton();
     }
 
     private static void RestyleStatCards(Control root)
@@ -540,6 +543,51 @@ public class DashboardForm : Form, IThemeAware
     {
         using var settings = new SettingsForm(_user);
         settings.ShowDialog(this);
+        RefreshUserMenuButton();
+    }
+
+    private void RefreshUserMenuButton()
+    {
+        var settings = new UserSettingsService().Load(_user.Id);
+        if (_btnUserMenu.Image is not null)
+        {
+            _btnUserMenu.Image.Dispose();
+            _btnUserMenu.Image = null;
+        }
+
+        if (!string.IsNullOrWhiteSpace(settings.ProfileImagePath) && File.Exists(settings.ProfileImagePath))
+        {
+            _btnUserMenu.BackgroundImage?.Dispose();
+            _btnUserMenu.Text = string.Empty;
+            _btnUserMenu.BackgroundImage = LoadSquareImage(settings.ProfileImagePath, _btnUserMenu.Width);
+            _btnUserMenu.BackgroundImageLayout = ImageLayout.Stretch;
+            _btnUserMenu.BackColor = AppTheme.PrimarySoft;
+            return;
+        }
+
+        _btnUserMenu.BackgroundImage?.Dispose();
+        _btnUserMenu.BackgroundImage = null;
+        _btnUserMenu.Text = string.IsNullOrWhiteSpace(_user.FullName) ? "U" : _user.FullName.Trim()[0].ToString().ToUpperInvariant();
+        _btnUserMenu.BackColor = AppTheme.Primary;
+        _btnUserMenu.ForeColor = Color.White;
+    }
+
+    private static Image LoadSquareImage(string path, int size)
+    {
+        using var image = Image.FromFile(path);
+        var sourceSize = Math.Min(image.Width, image.Height);
+        var sourceX = (image.Width - sourceSize) / 2;
+        var sourceY = (image.Height - sourceSize) / 2;
+        var bitmap = new Bitmap(size, size);
+        using var graphics = Graphics.FromImage(bitmap);
+        graphics.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
+        graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+        graphics.DrawImage(
+            image,
+            new Rectangle(0, 0, size, size),
+            new Rectangle(sourceX, sourceY, sourceSize, sourceSize),
+            GraphicsUnit.Pixel);
+        return bitmap;
     }
 
     private void Logout()

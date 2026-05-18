@@ -36,7 +36,7 @@ public class TaskRepository
         connection.Open();
 
         const string query = """
-                             SELECT t.id, u.nume_prenume, u.email, c.name AS category_name,
+                             SELECT t.id, u.id AS user_id, u.nume_prenume, u.email, c.name AS category_name,
                                     t.title, t.description, t.due_date, t.is_completed, t.created_at
                              FROM tasks t
                              INNER JOIN users u ON u.id = t.user_id
@@ -51,6 +51,7 @@ public class TaskRepository
             tasks.Add(new AdminTaskModel
             {
                 Id = reader.GetInt32("id"),
+                UserId = reader.GetInt32("user_id"),
                 UserName = GetStringOrEmpty(reader, "nume_prenume"),
                 UserEmail = GetStringOrEmpty(reader, "email"),
                 CategoryName = GetStringOrEmpty(reader, "category_name"),

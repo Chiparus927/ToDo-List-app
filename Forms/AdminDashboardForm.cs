@@ -14,6 +14,7 @@ public class AdminDashboardForm : Form, IThemeAware
     private readonly RoundedPanel _listHost = new();
     private readonly Button _btnUsersTab = new();
     private readonly Button _btnTasksTab = new();
+    private readonly Button _btnSelectedUserTasksTab = new();
     private readonly Label _lblStats = new();
     private readonly Label _lblUsersValue = new();
     private readonly Label _lblAdminsValue = new();
@@ -28,6 +29,7 @@ public class AdminDashboardForm : Form, IThemeAware
     private List<AdminTaskModel> _tasks = new();
     private UserModel? _selectedUser;
     private bool _showTasks;
+    private bool _showSelectedUserTasks;
 
     public AdminDashboardForm(AdminService adminService, UserModel adminUser)
     {
@@ -90,7 +92,7 @@ public class AdminDashboardForm : Form, IThemeAware
         var switcher = new RoundedPanel
         {
             Location = new Point(28, 412),
-            Size = new Size(230, 48),
+            Size = new Size(364, 48),
             Radius = 18,
             BackColor = AppTheme.SoftSurface,
             DrawShadow = false,
@@ -98,11 +100,14 @@ public class AdminDashboardForm : Form, IThemeAware
         };
         ConfigureSegmentButton(_btnUsersTab, "Users", true);
         ConfigureSegmentButton(_btnTasksTab, "All tasks", false);
+        ConfigureSegmentButton(_btnSelectedUserTasksTab, "User tasks", false);
         _btnUsersTab.SetBounds(4, 4, 108, 40);
         _btnTasksTab.SetBounds(116, 4, 110, 40);
+        _btnSelectedUserTasksTab.SetBounds(230, 4, 130, 40);
         _btnUsersTab.Click += (_, _) => ShowUsersTab();
         _btnTasksTab.Click += (_, _) => ShowTasksTab();
-        switcher.Controls.AddRange([_btnUsersTab, _btnTasksTab]);
+        _btnSelectedUserTasksTab.Click += (_, _) => ShowSelectedUserTasksTab();
+        switcher.Controls.AddRange([_btnUsersTab, _btnTasksTab, _btnSelectedUserTasksTab]);
 
         _usersList.Dock = DockStyle.Fill;
         _usersList.AutoScroll = true;
@@ -139,7 +144,7 @@ public class AdminDashboardForm : Form, IThemeAware
             statsPanel.SetBounds(leftGap, 124, w, 112);
             PositionStatCards(statsPanel, w);
             _chartPanel.SetBounds(leftGap, 258, w, 132);
-            switcher.SetBounds(leftGap, 412, 230, 48);
+            switcher.SetBounds(leftGap, 412, 364, 48);
             _listHost.SetBounds(leftGap, 476, w, Math.Max(280, h - 476));
             ResizeUserCards();
             ResizeTaskCards();
@@ -186,6 +191,7 @@ public class AdminDashboardForm : Form, IThemeAware
     {
         using var settings = new SettingsForm(_adminUser);
         settings.ShowDialog(this);
+        RefreshUserMenuButton();
     }
 
     private static RoundedPanel CreateStatCard(Label valueLabel, string icon, Color background, Color accent, Point location)
@@ -231,6 +237,7 @@ public class AdminDashboardForm : Form, IThemeAware
     {
         button.Text = text;
         button.FlatStyle = FlatStyle.Flat;
+        button.UseVisualStyleBackColor = false;
         button.FlatAppearance.BorderSize = 0;
         button.BackColor = active ? AppTheme.Input : AppTheme.SoftSurface;
         button.ForeColor = active ? AppTheme.Primary : AppTheme.TextMuted;
@@ -243,6 +250,7 @@ public class AdminDashboardForm : Form, IThemeAware
     private void ShowUsersTab()
     {
         _showTasks = false;
+        _showSelectedUserTasks = false;
         _usersList.Visible = true;
         _tasksList.Visible = false;
         StyleTabState();
@@ -251,34 +259,98 @@ public class AdminDashboardForm : Form, IThemeAware
     private void ShowTasksTab()
     {
         _showTasks = true;
+        _showSelectedUserTasks = false;
         _usersList.Visible = false;
         _tasksList.Visible = true;
         StyleTabState();
+        ApplyAdminFilters();
+    }
+
+    private void ShowSelectedUserTasksTab()
+    {
+        if (_selectedUser is null)
+        {
+            Helpers.ShowInfo("Select a user first.");
+            return;
+        }
+
+        _showTasks = true;
+        _showSelectedUserTasks = true;
+        _usersList.Visible = false;
+        _tasksList.Visible = true;
+        StyleTabState();
+        ApplyAdminFilters();
     }
 
     private void StyleTabState()
     {
-        _btnUsersTab.BackColor = _showTasks ? AppTheme.SoftSurface : AppTheme.Input;
-        _btnUsersTab.ForeColor = _showTasks ? AppTheme.TextMuted : AppTheme.Primary;
-        _btnTasksTab.BackColor = _showTasks ? AppTheme.Input : AppTheme.SoftSurface;
-        _btnTasksTab.ForeColor = _showTasks ? AppTheme.Primary : AppTheme.TextMuted;
+        _btnUsersTab.BackColor = !_showTasks ? AppTheme.Input : AppTheme.SoftSurface;
+        _btnUsersTab.ForeColor = !_showTasks ? AppTheme.Primary : AppTheme.TextMuted;
+        _btnTasksTab.BackColor = _showTasks && !_showSelectedUserTasks ? AppTheme.Input : AppTheme.SoftSurface;
+        _btnTasksTab.ForeColor = _showTasks && !_showSelectedUserTasks ? AppTheme.Primary : AppTheme.TextMuted;
+        _btnSelectedUserTasksTab.BackColor = _showSelectedUserTasks ? AppTheme.Input : AppTheme.SoftSurface;
+        _btnSelectedUserTasksTab.ForeColor = _showSelectedUserTasks ? AppTheme.Primary : AppTheme.TextMuted;
     }
 
     private void ConfigureUserMenuButton()
     {
-        var initial = string.IsNullOrWhiteSpace(_adminUser.FullName) ? "A" : _adminUser.FullName.Trim()[0].ToString().ToUpperInvariant();
-        _btnUserMenu.Text = initial;
-        _btnUserMenu.Size = new Size(48, 48);
-        _btnUserMenu.Location = new Point(1034, 18);
+        _btnUserMenu.Size = new Size(54, 54);
+        _btnUserMenu.Location = new Point(1028, 15);
         _btnUserMenu.FlatStyle = FlatStyle.Flat;
+        _btnUserMenu.UseVisualStyleBackColor = false;
         _btnUserMenu.FlatAppearance.BorderSize = 0;
         _btnUserMenu.BackColor = AppTheme.Primary;
         _btnUserMenu.ForeColor = Color.White;
         _btnUserMenu.Font = new Font("Segoe UI", 14f, FontStyle.Bold);
         _btnUserMenu.Cursor = Cursors.Hand;
-        _btnUserMenu.Resize += (_, _) => AppTheme.ApplyRoundedRegion(_btnUserMenu, 24);
-        _btnUserMenu.HandleCreated += (_, _) => AppTheme.ApplyRoundedRegion(_btnUserMenu, 24);
+        _btnUserMenu.Resize += (_, _) => AppTheme.ApplyRoundedRegion(_btnUserMenu, 27);
+        _btnUserMenu.HandleCreated += (_, _) => AppTheme.ApplyRoundedRegion(_btnUserMenu, 27);
         _btnUserMenu.Click += (_, _) => _userMenuPanel.Visible = !_userMenuPanel.Visible;
+        RefreshUserMenuButton();
+    }
+
+    private void RefreshUserMenuButton()
+    {
+        var settings = new UserSettingsService().Load(_adminUser.Id);
+        if (_btnUserMenu.Image is not null)
+        {
+            _btnUserMenu.Image.Dispose();
+            _btnUserMenu.Image = null;
+        }
+
+        if (!string.IsNullOrWhiteSpace(settings.ProfileImagePath) && File.Exists(settings.ProfileImagePath))
+        {
+            _btnUserMenu.BackgroundImage?.Dispose();
+            _btnUserMenu.Text = string.Empty;
+            _btnUserMenu.BackgroundImage = LoadSquareImage(settings.ProfileImagePath, _btnUserMenu.Width);
+            _btnUserMenu.BackgroundImageLayout = ImageLayout.Stretch;
+            _btnUserMenu.BackColor = AppTheme.PrimarySoft;
+            return;
+        }
+
+        _btnUserMenu.BackgroundImage?.Dispose();
+        _btnUserMenu.BackgroundImage = null;
+        _btnUserMenu.Text = string.IsNullOrWhiteSpace(_adminUser.FullName) ? "A" : _adminUser.FullName.Trim()[0].ToString().ToUpperInvariant();
+        _btnUserMenu.BackColor = AppTheme.Primary;
+        _btnUserMenu.ForeColor = Color.White;
+    }
+
+    private static Image LoadSquareImage(string path, int size)
+    {
+        using var image = Image.FromFile(path);
+        var sourceSize = Math.Min(image.Width, image.Height);
+        var sourceX = (image.Width - sourceSize) / 2;
+        var sourceY = (image.Height - sourceSize) / 2;
+        var bitmap = new Bitmap(size, size);
+        using var graphics = Graphics.FromImage(bitmap);
+        graphics.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
+        graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+        graphics.DrawImage(
+            image,
+            new Rectangle(0, 0, size, size),
+            new Rectangle(sourceX, sourceY, sourceSize, sourceSize),
+            GraphicsUnit.Pixel);
+        return bitmap;
     }
 
     private void ConfigureUserMenuPanel()
@@ -303,6 +375,7 @@ public class AdminDashboardForm : Form, IThemeAware
             Location = new Point(12, 58),
             Size = new Size(198, 42),
             FlatStyle = FlatStyle.Flat,
+            UseVisualStyleBackColor = false,
             BackColor = AppTheme.Input,
             ForeColor = AppTheme.TextPrimary,
             Font = new Font("Segoe UI", 10.5f),
@@ -401,6 +474,13 @@ public class AdminDashboardForm : Form, IThemeAware
                 .ToList();
         }
 
+        if (_showSelectedUserTasks && _selectedUser is not null)
+        {
+            filteredTasks = filteredTasks
+                .Where(task => task.UserId == _selectedUser.Id)
+                .ToList();
+        }
+
         RenderUserCards(filteredUsers);
         RenderTaskCards(filteredTasks);
     }
@@ -418,6 +498,7 @@ public class AdminDashboardForm : Form, IThemeAware
         RestyleStatCards(this);
         ApplyAdminFilters();
         _chartPanel.Invalidate();
+        RefreshUserMenuButton();
     }
 
     private static void RestyleStatCards(Control root)
@@ -459,7 +540,8 @@ public class AdminDashboardForm : Form, IThemeAware
         foreach (var user in users)
         {
             var card = new UserCardControl(user);
-            card.SelectedUser += (_, selected) => _selectedUser = selected;
+            card.SelectedUser += (_, selected) => SelectUser(selected);
+            card.ViewTasks += (_, selected) => ShowTasksForUser(selected);
             card.MakeAdmin += (_, selected) => ChangeUserRole(selected, "admin");
             card.MakeUser += (_, selected) => ChangeUserRole(selected, "user");
             card.DeleteUser += (_, selected) => DeleteUser(selected);
@@ -467,6 +549,28 @@ public class AdminDashboardForm : Form, IThemeAware
         }
         ResizeUserCards();
         _usersList.ResumeLayout();
+    }
+
+    private void SelectUser(UserModel selected)
+    {
+        _selectedUser = selected;
+        _btnSelectedUserTasksTab.Text = "User tasks";
+        _lblStats.Text = $"Selected {selected.FullName}. Open User tasks to view only this user's tasks.";
+        if (_showSelectedUserTasks)
+        {
+            ApplyAdminFilters();
+        }
+    }
+
+    private void ShowTasksForUser(UserModel selected)
+    {
+        SelectUser(selected);
+        _showTasks = true;
+        _showSelectedUserTasks = true;
+        _usersList.Visible = false;
+        _tasksList.Visible = true;
+        StyleTabState();
+        ApplyAdminFilters();
     }
 
     private void ResizeUserCards()

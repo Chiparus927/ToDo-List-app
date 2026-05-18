@@ -56,9 +56,12 @@ public class ToggleSwitch : Control
     protected override void OnPaint(PaintEventArgs e)
     {
         e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+        using var parentBack = new SolidBrush(Parent?.BackColor ?? AppTheme.Surface);
+        e.Graphics.FillRectangle(parentBack, ClientRectangle);
+
         var backColor = Checked
             ? (_hovered ? AppTheme.PrimaryHover : AppTheme.Primary)
-            : (_hovered ? Color.FromArgb(218, 224, 233) : Color.FromArgb(229, 233, 240));
+            : GetOffTrackColor();
 
         using var track = new SolidBrush(backColor);
         using var trackPath = AppTheme.RoundedRect(new Rectangle(0, 0, Width - 1, Height - 1), Height / 2);
@@ -70,5 +73,15 @@ public class ToggleSwitch : Control
         e.Graphics.FillEllipse(shadow, knobX + 1, 5, knobSize, knobSize);
         using var knob = new SolidBrush(Color.White);
         e.Graphics.FillEllipse(knob, knobX, 4, knobSize, knobSize);
+    }
+
+    private Color GetOffTrackColor()
+    {
+        if (AppTheme.IsDarkMode)
+        {
+            return _hovered ? Color.FromArgb(82, 90, 104) : Color.FromArgb(65, 72, 84);
+        }
+
+        return _hovered ? Color.FromArgb(218, 224, 233) : Color.FromArgb(229, 233, 240);
     }
 }

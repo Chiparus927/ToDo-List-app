@@ -8,6 +8,7 @@ public class UserCardControl : RoundedPanel
     private readonly UserModel _user;
 
     public event EventHandler<UserModel>? SelectedUser;
+    public event EventHandler<UserModel>? ViewTasks;
     public event EventHandler<UserModel>? MakeAdmin;
     public event EventHandler<UserModel>? MakeUser;
     public event EventHandler<UserModel>? DeleteUser;
@@ -72,21 +73,23 @@ public class UserCardControl : RoundedPanel
         var role = new BadgeLabel
         {
             Text = _user.IsAdmin ? "Admin" : "User",
-            Location = new Point(450, 28),
+            Location = new Point(430, 28),
             Width = 96,
             BackColor = RoleBackColor(),
             ForeColor = _user.IsAdmin ? AppTheme.Danger : AppTheme.Primary
         };
 
-        var makeAdmin = CreateActionButton("Make admin", new Point(450, 74), 108);
+        var tasks = CreateActionButton("Tasks", new Point(430, 74), 74);
+        tasks.Click += (_, _) => ViewTasks?.Invoke(this, _user);
+        var makeAdmin = CreateActionButton("Make admin", new Point(512, 74), 108);
         makeAdmin.Click += (_, _) => MakeAdmin?.Invoke(this, _user);
-        var makeUser = CreateActionButton("Make user", new Point(566, 74), 96);
+        var makeUser = CreateActionButton("Make user", new Point(628, 74), 96);
         makeUser.Click += (_, _) => MakeUser?.Invoke(this, _user);
-        var delete = CreateActionButton("Delete", new Point(670, 74), 82);
+        var delete = CreateActionButton("Delete", new Point(732, 74), 82);
         delete.ForeColor = AppTheme.Danger;
         delete.Click += (_, _) => DeleteUser?.Invoke(this, _user);
 
-        Controls.AddRange([avatar, name, email, created, role, makeAdmin, makeUser, delete]);
+        Controls.AddRange([avatar, name, email, created, role, tasks, makeAdmin, makeUser, delete]);
         Click += (_, _) => SelectedUser?.Invoke(this, _user);
         foreach (Control child in Controls)
         {
@@ -146,6 +149,7 @@ public class UserCardControl : RoundedPanel
             Location = location,
             Size = new Size(width, 34),
             FlatStyle = FlatStyle.Flat,
+            UseVisualStyleBackColor = false,
             BackColor = AppTheme.Input,
             ForeColor = AppTheme.TextPrimary,
             Font = new Font("Segoe UI Semibold", 9f, FontStyle.Bold),

@@ -102,6 +102,37 @@ public class UserRepository
         command.ExecuteNonQuery();
     }
 
+    public void UpdateProfile(int userId, string fullName, string email)
+    {
+        using var connection = _dbConnection.CreateConnection();
+        connection.Open();
+
+        const string query = """
+                             UPDATE users
+                             SET nume_prenume = @fullName,
+                                 email = @email
+                             WHERE id = @id;
+                             """;
+
+        using var command = new MySqlCommand(query, connection);
+        command.Parameters.AddWithValue("@id", userId);
+        command.Parameters.AddWithValue("@fullName", fullName);
+        command.Parameters.AddWithValue("@email", email);
+        command.ExecuteNonQuery();
+    }
+
+    public void UpdatePassword(int userId, string passwordHash)
+    {
+        using var connection = _dbConnection.CreateConnection();
+        connection.Open();
+
+        const string query = "UPDATE users SET password_hash = @passwordHash WHERE id = @id;";
+        using var command = new MySqlCommand(query, connection);
+        command.Parameters.AddWithValue("@id", userId);
+        command.Parameters.AddWithValue("@passwordHash", passwordHash);
+        command.ExecuteNonQuery();
+    }
+
     public void DeleteUser(int userId)
     {
         using var connection = _dbConnection.CreateConnection();

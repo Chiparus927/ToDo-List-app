@@ -1,4 +1,6 @@
+using System.Diagnostics;
 using ToDoListApp.Controls;
+using ToDoListApp.Database;
 using ToDoListApp.Models;
 using ToDoListApp.Services;
 using ToDoListApp.Utils;
@@ -8,6 +10,7 @@ namespace ToDoListApp.Forms;
 public class SettingsForm : Form, IThemeAware
 {
     private readonly UserModel _user;
+    private readonly UserRepository _userRepository = new();
     private readonly UserSettingsService _settingsService = new();
     private readonly UserSettingsModel _settings;
     private readonly Panel _contentHost = new();
@@ -62,25 +65,21 @@ public class SettingsForm : Form, IThemeAware
         {
             Text = "Settings",
             Location = new Point(28, 28),
-            Size = new Size(190, 38),
+            Size = new Size(200, 50),
             Font = new Font("Segoe UI", 22f, FontStyle.Bold),
             ForeColor = TextColor
         };
         _sidebarSubtitle = new Label
         {
             Text = _user.IsAdmin ? "Admin workspace" : "Personal workspace",
-            Location = new Point(30, 68),
+            Location = new Point(30, 82),
             Size = new Size(190, 22),
             Font = new Font("Segoe UI", 9.5f),
             ForeColor = MutedColor
         };
         _sidebar.Controls.AddRange([_sidebarTitle, _sidebarSubtitle]);
 
-        var sections = new List<string> { "Profile", "Appearance", "Notifications", "Security", "Data & Storage" };
-        if (_user.IsAdmin)
-        {
-            sections.Add("Admin Settings");
-        }
+        var sections = new List<string> { "Profile", "Appearance", "Notifications", "Security" };
         sections.Add("About");
 
         var top = 124;
@@ -108,6 +107,7 @@ public class SettingsForm : Form, IThemeAware
             Location = new Point(18, top),
             Size = new Size(224, 42),
             FlatStyle = FlatStyle.Flat,
+            UseVisualStyleBackColor = false,
             BackColor = SidebarColor,
             ForeColor = TextColor,
             Font = new Font("Segoe UI Semibold", 10f, FontStyle.Bold),
@@ -152,12 +152,6 @@ public class SettingsForm : Form, IThemeAware
             case "Security":
                 BuildSecurity(page);
                 break;
-            case "Data & Storage":
-                BuildDataStorage(page);
-                break;
-            case "Admin Settings":
-                BuildAdminSettings(page);
-                break;
             default:
                 BuildAbout(page);
                 break;
@@ -170,39 +164,39 @@ public class SettingsForm : Form, IThemeAware
     private void BuildProfile(Panel page)
     {
         AddPageTitle(page, "Profile", "Manage your identity, avatar, and account shortcuts.");
-        var card = CreateSectionCard(new Rectangle(0, 96, 720, 240));
+        var card = CreateSectionCard(new Rectangle(0, 112, 720, 264));
 
-        var avatar = CreateAvatar(34, 38, 96);
+        var avatar = CreateAvatar(34, 36, 104);
         var name = new Label
         {
             Text = _user.FullName,
-            Location = new Point(158, 38),
-            Size = new Size(420, 34),
-            Font = new Font("Segoe UI", 19f, FontStyle.Bold),
+            Location = new Point(194, 38),
+            Size = new Size(500, 42),
+            Font = new Font("Segoe UI", 18f, FontStyle.Bold),
             ForeColor = AppTheme.TextPrimary
         };
         var email = new Label
         {
             Text = _user.Email,
-            Location = new Point(160, 76),
-            Size = new Size(420, 24),
+            Location = new Point(196, 86),
+            Size = new Size(500, 24),
             Font = new Font("Segoe UI", 10.5f),
             ForeColor = AppTheme.TextMuted
         };
         var role = new BadgeLabel
         {
             Text = _user.IsAdmin ? "Admin" : "User",
-            Location = new Point(160, 112),
+            Location = new Point(196, 126),
             Width = 92,
             BackColor = _user.IsAdmin ? Color.FromArgb(255, 236, 235) : AppTheme.PrimarySoft,
             ForeColor = _user.IsAdmin ? AppTheme.Danger : AppTheme.Primary
         };
 
-        var edit = CreateSecondaryButton("Edit Profile", new Point(34, 168), 132);
-        edit.Click += (_, _) => Helpers.ShowInfo("Profile editing is ready for a future account details screen.");
-        var password = CreateSecondaryButton("Change Password", new Point(180, 168), 164);
-        password.Click += (_, _) => Helpers.ShowInfo("Password changes are handled from the Security section.");
-        var upload = CreatePrimaryButton("Upload Image", new Point(360, 168), 148);
+        var edit = CreateSecondaryButton("Edit Profile", new Point(34, 194), 132);
+        edit.Click += (_, _) => EditProfile();
+        var password = CreateSecondaryButton("Change Password", new Point(180, 194), 164);
+        password.Click += (_, _) => ChangePassword();
+        var upload = CreatePrimaryButton("Upload Image", new Point(360, 194), 148);
         upload.Click += (_, _) => UploadProfileImage();
 
         card.Controls.AddRange([avatar, name, email, role, edit, password, upload]);
@@ -212,17 +206,15 @@ public class SettingsForm : Form, IThemeAware
     private void BuildAppearance(Panel page)
     {
         AddPageTitle(page, "Appearance", "Tune the visual language of your workspace.");
-        var card = CreateSectionCard(new Rectangle(0, 96, 760, 322));
+        var card = CreateSectionCard(new Rectangle(0, 96, 760, 224));
         card.Controls.AddRange([
-            CreateToggleRow("Dark Mode", "Switch between light and dark presentation.", _settings.DarkMode, value => _settings.DarkMode = value, 28, true),
-            CreateToggleRow("Transparency", "Enable frosted glass surfaces.", _settings.TransparencyEnabled, value => _settings.TransparencyEnabled = value, 92, true),
-            CreateToggleRow("Blur Effects", "Use subtle blur-inspired soft layers.", _settings.BlurEnabled, value => _settings.BlurEnabled = value, 156, false)
+            CreateToggleRow("Dark Mode", "Switch between light and dark presentation.", _settings.DarkMode, value => _settings.DarkMode = value, 28, true)
         ]);
 
         var accentTitle = new Label
         {
             Text = "Accent color",
-            Location = new Point(28, 220),
+            Location = new Point(28, 96),
             Size = new Size(160, 24),
             Font = new Font("Segoe UI Semibold", 10.5f, FontStyle.Bold),
             ForeColor = TextColor
@@ -235,10 +227,11 @@ public class SettingsForm : Form, IThemeAware
         {
             var swatch = new Button
             {
-                Location = new Point(left, 254),
+                Location = new Point(left, 130),
                 Size = new Size(36, 36),
                 BackColor = ColorTranslator.FromHtml(color),
                 FlatStyle = FlatStyle.Flat,
+                UseVisualStyleBackColor = false,
                 Cursor = Cursors.Hand
             };
             swatch.FlatAppearance.BorderSize = _settings.AccentColor == color ? 3 : 0;
@@ -255,37 +248,19 @@ public class SettingsForm : Form, IThemeAware
             left += 48;
         }
 
-        var preview = CreateSectionCard(new Rectangle(790, 96, 250, 180));
-        preview.Controls.AddRange([
-            new Label
-            {
-                Text = "Live preview",
-                Location = new Point(24, 24),
-                Size = new Size(180, 28),
-                Font = new Font("Segoe UI Semibold", 12f, FontStyle.Bold),
-                ForeColor = TextColor
-            },
-            new BadgeLabel
-            {
-                Text = "Accent",
-                Location = new Point(24, 70),
-                Width = 96,
-                BackColor = AppTheme.PrimarySoft,
-                ForeColor = AccentColor
-            }
-        ]);
-        page.Controls.AddRange([card, preview]);
+        page.Controls.Add(card);
     }
 
     private void BuildNotifications(Panel page)
     {
         AddPageTitle(page, "Notifications", "Choose how the app keeps you in the flow.");
-        var card = CreateSectionCard(new Rectangle(0, 96, 760, 320));
+        var card = CreateSectionCard(new Rectangle(0, 96, 760, 390));
         card.Controls.AddRange([
             CreateToggleRow("Task completed alerts", "Notify when a task is marked completed.", _settings.TaskCompletedNotifications, value => _settings.TaskCompletedNotifications = value, 28),
             CreateToggleRow("Task reminders", "Show reminders for upcoming due dates.", _settings.TaskReminders, value => _settings.TaskReminders = value, 92),
             CreateToggleRow("Notification sounds", "Play a soft sound for important events.", _settings.NotificationSounds, value => _settings.NotificationSounds = value, 156),
-            CreateToggleRow("Desktop notifications", "Allow native desktop notifications.", _settings.DesktopNotifications, value => _settings.DesktopNotifications = value, 220)
+            CreateToggleRow("Desktop notifications", "Allow native desktop notifications.", _settings.DesktopNotifications, value => _settings.DesktopNotifications = value, 220),
+            CreateActionRow("Test notification", "Preview the current notification settings.", "Send", 300, SendTestNotification)
         ]);
         page.Controls.Add(card);
     }
@@ -293,51 +268,18 @@ public class SettingsForm : Form, IThemeAware
     private void BuildSecurity(Panel page)
     {
         AddPageTitle(page, "Security", "Protect your account and review sign-in activity.");
-        var card = CreateSectionCard(new Rectangle(0, 96, 760, 300));
+        var card = CreateSectionCard(new Rectangle(0, 96, 760, 230));
         card.Controls.AddRange([
-            CreateActionRow("Change password", "Update your current password.", "Change", 28, () => Helpers.ShowInfo("Password change flow is simulated for this project.")),
-            CreateToggleRow("Two-factor authentication", "Simulated extra verification for sign-in.", _settings.TwoFactorEnabled, value => _settings.TwoFactorEnabled = value, 102),
-            CreateActionRow("Logout all sessions", "End active sessions across devices.", "Logout", 176, () => Helpers.ShowInfo("All sessions were marked for logout.")),
+            CreateActionRow("Change password", "Update your current password.", "Change", 28, ChangePassword),
+            CreateActionRow("Logout all sessions", "End active sessions and return to login.", "Logout", 102, LogoutAllSessions),
             new Label
             {
                 Text = $"Last login: {_settings.LastLoginAt:g}",
-                Location = new Point(28, 248),
+                Location = new Point(28, 174),
                 Size = new Size(420, 24),
                 Font = new Font("Segoe UI", 10f),
                 ForeColor = AppTheme.TextMuted
             }
-        ]);
-        page.Controls.Add(card);
-    }
-
-    private void BuildDataStorage(Panel page)
-    {
-        AddPageTitle(page, "Data & Storage", "Review local usage and export your productivity data.");
-        var card = CreateSectionCard(new Rectangle(0, 96, 760, 280));
-        card.Controls.AddRange([
-            CreateMetricCard("Total tasks", "Stored in your workspace", "Live", new Point(28, 30), AppTheme.Primary),
-            CreateMetricCard("Completed", "Finished task records", "Sync", new Point(270, 30), AppTheme.Success),
-            CreateMetricCard("Active", "Open task records", "Open", new Point(512, 30), AppTheme.Warning)
-        ]);
-        var export = CreatePrimaryButton("Export Tasks", new Point(28, 200), 136);
-        export.Click += (_, _) => ExportSettingsSnapshot("tasks-export");
-        var backup = CreateSecondaryButton("Backup Data", new Point(178, 200), 132);
-        backup.Click += (_, _) => ExportSettingsSnapshot("backup");
-        card.Controls.Add(export);
-        card.Controls.Add(backup);
-        page.Controls.Add(card);
-    }
-
-    private void BuildAdminSettings(Panel page)
-    {
-        AddPageTitle(page, "Admin Settings", "Global controls and operational insights for administrators.");
-        var card = CreateSectionCard(new Rectangle(0, 96, 820, 330));
-        card.Controls.AddRange([
-            CreateMetricCard("Users", "Manage active accounts", "Admin", new Point(28, 30), AppTheme.Primary),
-            CreateMetricCard("Global tasks", "Application-wide task activity", "Tasks", new Point(286, 30), AppTheme.Success),
-            CreateMetricCard("Activity", "Recent user actions", "Live", new Point(544, 30), AppTheme.Warning),
-            CreateActionRow("User management", "Open user control tools from the admin dashboard.", "Manage", 176, () => Helpers.ShowInfo("User management is available on the admin dashboard.")),
-            CreateActionRow("Reset user passwords", "Simulated reset flow for selected users.", "Reset", 246, () => Helpers.ShowInfo("Password reset flow is simulated for this project."))
         ]);
         page.Controls.Add(card);
     }
@@ -367,9 +309,9 @@ public class SettingsForm : Form, IThemeAware
             new Label { Text = "A modern desktop productivity project built with native C# Windows Forms.", Location = new Point(30, 170), Size = new Size(570, 44), Font = new Font("Segoe UI", 10f), ForeColor = AppTheme.TextMuted },
         ]);
         var github = CreateSecondaryButton("GitHub", new Point(30, 224), 110);
-        github.Click += (_, _) => Helpers.ShowInfo("GitHub link is not configured yet.");
+        github.Click += (_, _) => OpenGitHub();
         var docs = CreateSecondaryButton("Documentation", new Point(154, 224), 150);
-        docs.Click += (_, _) => Helpers.ShowInfo("Documentation link is not configured yet.");
+        docs.Click += (_, _) => ShowDocumentation();
         card.Controls.AddRange([github, docs]);
         page.Controls.Add(card);
     }
@@ -380,15 +322,15 @@ public class SettingsForm : Form, IThemeAware
         {
             Text = title,
             Location = new Point(0, 0),
-            Size = new Size(620, 44),
+            Size = new Size(720, 58),
             Font = new Font("Segoe UI", 26f, FontStyle.Bold),
             ForeColor = TextColor
         });
         page.Controls.Add(new Label
         {
             Text = subtitle,
-            Location = new Point(2, 52),
-            Size = new Size(720, 26),
+            Location = new Point(2, 68),
+            Size = new Size(760, 28),
             Font = new Font("Segoe UI", 10.5f),
             ForeColor = MutedColor
         });
@@ -408,10 +350,12 @@ public class SettingsForm : Form, IThemeAware
 
     private Control CreateToggleRow(string title, string description, bool value, Action<bool> setter, int top, bool refreshSection = false)
     {
-        var row = new Panel { Location = new Point(28, top), Size = new Size(690, 60), BackColor = Color.Transparent };
+        var rowBackColor = Color.FromArgb(255, CardColor);
+        var row = new Panel { Location = new Point(28, top), Size = new Size(690, 60), BackColor = rowBackColor };
         row.Controls.Add(new Label { Text = title, Location = new Point(0, 0), Size = new Size(360, 24), Font = new Font("Segoe UI Semibold", 10.5f, FontStyle.Bold), ForeColor = TextColor });
         row.Controls.Add(new Label { Text = description, Location = new Point(0, 28), Size = new Size(470, 24), Font = new Font("Segoe UI", 9.5f), ForeColor = MutedColor });
         var toggle = new ToggleSwitch { Checked = value, Location = new Point(620, 12) };
+        toggle.BackColor = rowBackColor;
         toggle.CheckedChanged += (_, _) =>
         {
             setter(toggle.Checked);
@@ -450,9 +394,24 @@ public class SettingsForm : Form, IThemeAware
         return card;
     }
 
-    private Label CreateAvatar(int left, int top, int size)
+    private Control CreateAvatar(int left, int top, int size)
     {
         var text = string.IsNullOrWhiteSpace(_user.FullName) ? "U" : _user.FullName.Trim()[0].ToString().ToUpperInvariant();
+        if (!string.IsNullOrWhiteSpace(_settings.ProfileImagePath) && File.Exists(_settings.ProfileImagePath))
+        {
+            var picture = new PictureBox
+            {
+                Location = new Point(left, top),
+                Size = new Size(size, size),
+                BackColor = AppTheme.PrimarySoft,
+                SizeMode = PictureBoxSizeMode.StretchImage,
+                Image = LoadSquareImage(_settings.ProfileImagePath, size)
+            };
+            picture.Resize += (_, _) => AppTheme.ApplyRoundedRegion(picture, size / 2);
+            picture.HandleCreated += (_, _) => AppTheme.ApplyRoundedRegion(picture, size / 2);
+            return picture;
+        }
+
         var avatar = new Label
         {
             Text = text,
@@ -466,14 +425,25 @@ public class SettingsForm : Form, IThemeAware
         avatar.Resize += (_, _) => AppTheme.ApplyRoundedRegion(avatar, size / 2);
         avatar.HandleCreated += (_, _) => AppTheme.ApplyRoundedRegion(avatar, size / 2);
 
-        if (!string.IsNullOrWhiteSpace(_settings.ProfileImagePath) && File.Exists(_settings.ProfileImagePath))
-        {
-            avatar.Image = Image.FromFile(_settings.ProfileImagePath);
-            avatar.Text = string.Empty;
-            avatar.ImageAlign = ContentAlignment.MiddleCenter;
-        }
-
         return avatar;
+    }
+
+    private static Image LoadSquareImage(string path, int size)
+    {
+        using var image = Image.FromFile(path);
+        var sourceSize = Math.Min(image.Width, image.Height);
+        var sourceX = (image.Width - sourceSize) / 2;
+        var sourceY = (image.Height - sourceSize) / 2;
+        var bitmap = new Bitmap(size, size);
+        using var graphics = Graphics.FromImage(bitmap);
+        graphics.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
+        graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+        graphics.DrawImage(
+            image,
+            new Rectangle(0, 0, size, size),
+            new Rectangle(sourceX, sourceY, sourceSize, sourceSize),
+            GraphicsUnit.Pixel);
+        return bitmap;
     }
 
     private Button CreatePrimaryButton(string text, Point location, int width)
@@ -490,6 +460,7 @@ public class SettingsForm : Form, IThemeAware
             Location = location,
             Size = new Size(width, 40),
             FlatStyle = FlatStyle.Flat,
+            UseVisualStyleBackColor = false,
             BackColor = AppTheme.Input,
             ForeColor = AppTheme.TextPrimary,
             Font = new Font("Segoe UI Semibold", 9.5f, FontStyle.Bold),
@@ -521,6 +492,263 @@ public class SettingsForm : Form, IThemeAware
         ShowSection("Profile");
     }
 
+    private void EditProfile()
+    {
+        using var form = CreateAccountDialog("Edit profile", 430, 392);
+        var fullNameBox = new TextBox { Text = _user.FullName, PlaceholderText = "Full name" };
+        var emailBox = new TextBox { Text = _user.Email, PlaceholderText = "Email" };
+        var selectedImagePath = _settings.ProfileImagePath;
+
+        AddDialogTitle(form, "Edit profile", "Update your name and email address.");
+        AddDialogInput(form, "Full name", fullNameBox, 82, false);
+        AddDialogInput(form, "Email", emailBox, 148, false);
+
+        var imageLabel = new Label
+        {
+            Text = string.IsNullOrWhiteSpace(selectedImagePath) ? "No profile image selected." : ShortFileName(selectedImagePath),
+            Location = new Point(24, 224),
+            Size = new Size(230, 40),
+            Font = new Font("Segoe UI", 9.5f),
+            ForeColor = MutedColor
+        };
+        var chooseImage = CreateDialogSecondaryButton("Choose image", new Point(270, 224), 128);
+        chooseImage.Click += (_, _) =>
+        {
+            using var dialog = new OpenFileDialog
+            {
+                Title = "Choose profile image",
+                Filter = "Image files|*.png;*.jpg;*.jpeg;*.bmp"
+            };
+
+            if (dialog.ShowDialog(form) != DialogResult.OK)
+            {
+                return;
+            }
+
+            selectedImagePath = dialog.FileName;
+            imageLabel.Text = ShortFileName(selectedImagePath);
+        };
+
+        form.Controls.AddRange([imageLabel, chooseImage]);
+
+        var save = CreateDialogPrimaryButton("Save", new Point(202, 306), 92);
+        var cancel = CreateDialogSecondaryButton("Cancel", new Point(306, 306), 92);
+        cancel.Click += (_, _) => form.Close();
+        save.Click += (_, _) =>
+        {
+            var fullName = fullNameBox.Text.Trim();
+            var email = emailBox.Text.Trim();
+
+            if (!Validator.IsFullNameValid(fullName))
+            {
+                Helpers.ShowError("Full name must be at least 3 characters.");
+                return;
+            }
+
+            if (!Validator.IsEmailValid(email))
+            {
+                Helpers.ShowError("Please enter a valid email address.");
+                return;
+            }
+
+            try
+            {
+                var existing = _userRepository.GetByEmail(email);
+                if (existing is not null && existing.Id != _user.Id)
+                {
+                    Helpers.ShowError("An account with this email already exists.");
+                    return;
+                }
+
+                _userRepository.UpdateProfile(_user.Id, fullName, email);
+                _user.FullName = fullName;
+                _user.Email = email;
+                _settings.ProfileImagePath = selectedImagePath;
+                SaveSettings();
+                Helpers.ShowInfo("Profile updated successfully.");
+                form.DialogResult = DialogResult.OK;
+                form.Close();
+            }
+            catch (Exception ex)
+            {
+                Helpers.ShowError($"Could not update profile: {ex.Message}");
+            }
+        };
+
+        form.Controls.AddRange([save, cancel]);
+        if (form.ShowDialog(this) == DialogResult.OK)
+        {
+            ShowSection("Profile");
+        }
+    }
+
+    private static string ShortFileName(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return "No profile image selected.";
+        }
+
+        var fileName = Path.GetFileName(path);
+        return fileName.Length <= 34 ? fileName : fileName[..31] + "...";
+    }
+
+    private void ChangePassword()
+    {
+        using var form = CreateAccountDialog("Change password", 430, 422);
+        var currentBox = new TextBox { PlaceholderText = "Current password" };
+        var newBox = new TextBox { PlaceholderText = "New password" };
+        var confirmBox = new TextBox { PlaceholderText = "Confirm new password" };
+
+        AddDialogTitle(form, "Change password", "Confirm your current password, then choose a new one.");
+        AddDialogInput(form, "Current password", currentBox, 82, true);
+        AddDialogInput(form, "New password", newBox, 148, true);
+        AddDialogInput(form, "Confirm password", confirmBox, 214, true);
+
+        var hint = new Label
+        {
+            Text = "Use at least 8 characters, one uppercase letter, and one special character.",
+            Location = new Point(24, 282),
+            Size = new Size(374, 36),
+            Font = new Font("Segoe UI", 9f),
+            ForeColor = MutedColor
+        };
+        form.Controls.Add(hint);
+
+        var save = CreateDialogPrimaryButton("Update", new Point(202, 340), 92);
+        var cancel = CreateDialogSecondaryButton("Cancel", new Point(306, 340), 92);
+        cancel.Click += (_, _) => form.Close();
+        save.Click += (_, _) =>
+        {
+            if (Validator.IsNullOrWhiteSpace(currentBox.Text, newBox.Text, confirmBox.Text))
+            {
+                Helpers.ShowError("Please fill in all password fields.");
+                return;
+            }
+
+            var currentHash = Helpers.HashPassword(currentBox.Text);
+            if (!_user.PasswordHash.Equals(currentHash, StringComparison.OrdinalIgnoreCase))
+            {
+                Helpers.ShowError("Current password is incorrect.");
+                return;
+            }
+
+            if (!newBox.Text.Equals(confirmBox.Text, StringComparison.Ordinal))
+            {
+                Helpers.ShowError("New passwords do not match.");
+                return;
+            }
+
+            if (!Validator.IsPasswordValid(newBox.Text))
+            {
+                Helpers.ShowError("Password must be at least 8 characters and include one uppercase letter and one special character.");
+                return;
+            }
+
+            try
+            {
+                var newHash = Helpers.HashPassword(newBox.Text);
+                _userRepository.UpdatePassword(_user.Id, newHash);
+                _user.PasswordHash = newHash;
+                Helpers.ShowInfo("Password changed successfully.");
+                form.DialogResult = DialogResult.OK;
+                form.Close();
+            }
+            catch (Exception ex)
+            {
+                Helpers.ShowError($"Could not change password: {ex.Message}");
+            }
+        };
+
+        form.Controls.AddRange([save, cancel]);
+        form.ShowDialog(this);
+    }
+
+    private Form CreateAccountDialog(string title, int width, int height)
+    {
+        var dialogBackColor = Color.FromArgb(255, CardColor);
+        var form = new Form
+        {
+            Text = title,
+            Size = new Size(width, height),
+            StartPosition = FormStartPosition.CenterParent,
+            FormBorderStyle = FormBorderStyle.FixedDialog,
+            MaximizeBox = false,
+            MinimizeBox = false,
+            BackColor = dialogBackColor
+        };
+        return form;
+    }
+
+    private void AddDialogTitle(Form form, string title, string subtitle)
+    {
+        form.Controls.Add(new Label
+        {
+            Text = title,
+            Location = new Point(24, 18),
+            Size = new Size(form.ClientSize.Width - 48, 34),
+            Font = new Font("Segoe UI", 16f, FontStyle.Bold),
+            ForeColor = TextColor
+        });
+        form.Controls.Add(new Label
+        {
+            Text = subtitle,
+            Location = new Point(25, 56),
+            Size = new Size(form.ClientSize.Width - 50, 24),
+            Font = new Font("Segoe UI", 9.5f),
+            ForeColor = MutedColor
+        });
+    }
+
+    private void AddDialogInput(Form form, string label, TextBox textBox, int top, bool password)
+    {
+        form.Controls.Add(new Label
+        {
+            Text = label,
+            Location = new Point(24, top),
+            Size = new Size(150, 22),
+            Font = new Font("Segoe UI Semibold", 9.5f, FontStyle.Bold),
+            ForeColor = TextColor
+        });
+
+        var row = password
+            ? PasswordRevealHelper.CreatePasswordRow(textBox, form.ClientSize.Width - 48)
+            : AppTheme.CreateTextInputRow(textBox, form.ClientSize.Width - 48);
+        row.Location = new Point(24, top + 24);
+        form.Controls.Add(row);
+    }
+
+    private Button CreateDialogPrimaryButton(string text, Point location, int width)
+    {
+        var button = new GradientButton
+        {
+            Text = text,
+            Location = location,
+            Size = new Size(width, 40)
+        };
+        return button;
+    }
+
+    private Button CreateDialogSecondaryButton(string text, Point location, int width)
+    {
+        var button = new Button
+        {
+            Text = text,
+            Location = location,
+            Size = new Size(width, 40),
+            FlatStyle = FlatStyle.Flat,
+            UseVisualStyleBackColor = false,
+            BackColor = InputColor,
+            ForeColor = TextColor,
+            Font = new Font("Segoe UI Semibold", 9.5f, FontStyle.Bold),
+            Cursor = Cursors.Hand
+        };
+        button.FlatAppearance.BorderSize = 0;
+        button.Resize += (_, _) => AppTheme.ApplyRoundedRegion(button, 14);
+        button.HandleCreated += (_, _) => AppTheme.ApplyRoundedRegion(button, 14);
+        return button;
+    }
+
     private void SaveSettings()
     {
         _settingsService.Save(_settings);
@@ -534,28 +762,122 @@ public class SettingsForm : Form, IThemeAware
         ShowSection(_activeSection);
     }
 
-    private void ExportSettingsSnapshot(string prefix)
+    private void LogoutAllSessions()
     {
-        var directory = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "ToDoListApp",
-            "Exports");
-        Directory.CreateDirectory(directory);
+        var confirm = MessageBox.Show(
+            "Logout from this account and return to the login screen?",
+            "Confirm logout",
+            MessageBoxButtons.YesNo,
+            MessageBoxIcon.Question);
 
-        var path = Path.Combine(directory, $"{prefix}-{_user.Id}-{DateTime.Now:yyyyMMdd-HHmmss}.json");
-        var payload = $$"""
+        if (confirm != DialogResult.Yes)
         {
-          "userId": {{_user.Id}},
-          "name": "{{_user.FullName}}",
-          "email": "{{_user.Email}}",
-          "role": "{{_user.Role}}",
-          "darkMode": {{_settings.DarkMode.ToString().ToLowerInvariant()}},
-          "accentColor": "{{_settings.AccentColor}}",
-          "createdAt": "{{DateTime.Now:O}}"
+            return;
         }
-        """;
-        File.WriteAllText(path, payload);
-        Helpers.ShowInfo($"Saved to {path}");
+
+        Application.Restart();
+    }
+
+    private void SendTestNotification()
+    {
+        if (!_settings.TaskCompletedNotifications && !_settings.TaskReminders && !_settings.DesktopNotifications)
+        {
+            Helpers.ShowInfo("Notifications are currently turned off.");
+            return;
+        }
+
+        if (_settings.NotificationSounds)
+        {
+            System.Media.SystemSounds.Asterisk.Play();
+        }
+
+        if (_settings.DesktopNotifications)
+        {
+            using var notifyIcon = new NotifyIcon
+            {
+                Icon = SystemIcons.Application,
+                Visible = true,
+                BalloonTipTitle = "ToDo List App",
+                BalloonTipText = "Notifications are enabled and working."
+            };
+            notifyIcon.ShowBalloonTip(3000);
+            return;
+        }
+
+        Helpers.ShowInfo("Notifications are enabled and working.", "ToDo List App");
+    }
+
+    private static void OpenGitHub()
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = "https://github.com/Chiparus927/ToDo-List-app",
+                UseShellExecute = true
+            });
+        }
+        catch (Exception ex)
+        {
+            Helpers.ShowError($"Could not open GitHub: {ex.Message}");
+        }
+    }
+
+    private void ShowDocumentation()
+    {
+        using var form = CreateAccountDialog("Documentation", 680, 600);
+        AddDialogTitle(form, "Documentation", "ToDo List App user guide and project notes.");
+
+        var text = new TextBox
+        {
+            Location = new Point(24, 112),
+            Size = new Size(616, 376),
+            Multiline = true,
+            ReadOnly = true,
+            ScrollBars = ScrollBars.Vertical,
+            BorderStyle = BorderStyle.FixedSingle,
+            BackColor = InputColor,
+            ForeColor = TextColor,
+            Font = new Font("Segoe UI", 10f),
+            Text = BuildDocumentationText()
+        };
+
+        var close = CreateDialogPrimaryButton("Close", new Point(548, 508), 92);
+        close.Click += (_, _) => form.Close();
+        form.Controls.AddRange([text, close]);
+        form.ShowDialog(this);
+    }
+
+    private static string BuildDocumentationText()
+    {
+        return string.Join(Environment.NewLine, [
+            "ToDo List App Documentation",
+            "",
+            "Overview",
+            "This application helps users organize tasks in a desktop workspace. Each account has its own tasks, profile, visual preferences, and notification settings.",
+            "",
+            "Main features",
+            "- Register and login with a protected password hash.",
+            "- Create, edit, complete, filter, and delete tasks.",
+            "- Organize tasks by category and due date.",
+            "- Customize dark mode and accent color from Appearance.",
+            "- Edit profile details, profile image, and account password from Settings.",
+            "",
+            "Notifications",
+            "The Notifications page saves your preferences and includes a test button for sound and desktop notifications.",
+            "",
+            "Admin features",
+            "Admin users can review all users and all tasks from the admin dashboard.",
+            "",
+            "Data storage",
+            "The application stores users, tasks, and categories in MySQL. Personal settings, theme choices, and profile image path are saved locally in the user's AppData folder.",
+            "",
+            "Security notes",
+            "Passwords are stored as hashes, not plain text. Changing a password requires the current password.",
+            "",
+            "GitHub",
+            "https://github.com/Chiparus927/ToDo-List-app"
+        ]);
     }
 
     private Color AccentColor => ColorTranslator.FromHtml(_settings.AccentColor);

@@ -7,7 +7,7 @@ public class GradientButton : Button
 {
     private bool _hovered;
 
-    public int Radius { get; set; }
+    public int Radius { get; set; } = 16;
     public Color StartColor { get; set; } = AppTheme.Primary;
     public Color EndColor { get; set; } = Color.FromArgb(0, 102, 220);
     public Color HoverStartColor { get; set; } = Color.FromArgb(37, 150, 255);
@@ -16,11 +16,24 @@ public class GradientButton : Button
     public GradientButton()
     {
         FlatStyle = FlatStyle.Flat;
+        UseVisualStyleBackColor = false;
         FlatAppearance.BorderSize = 0;
         ForeColor = Color.White;
         Font = new Font("Segoe UI Semibold", 10.5f, FontStyle.Bold);
         Cursor = Cursors.Hand;
         SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw | ControlStyles.UserPaint, true);
+    }
+
+    protected override void OnResize(EventArgs e)
+    {
+        AppTheme.ApplyRoundedRegion(this, Radius);
+        base.OnResize(e);
+    }
+
+    protected override void OnHandleCreated(EventArgs e)
+    {
+        AppTheme.ApplyRoundedRegion(this, Radius);
+        base.OnHandleCreated(e);
     }
 
     protected override void OnMouseEnter(EventArgs e)
@@ -40,7 +53,7 @@ public class GradientButton : Button
     protected override void OnPaint(PaintEventArgs pevent)
     {
         pevent.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
-        using var background = new SolidBrush(Parent?.BackColor ?? AppTheme.Background);
+        using var background = new SolidBrush(AppTheme.ResolveParentBackColor(this, AppTheme.Background));
         pevent.Graphics.FillRectangle(background, ClientRectangle);
 
         var rect = new Rectangle(0, 0, Width - 1, Height - 1);

@@ -38,6 +38,7 @@ public static class PasswordRevealHelper
             Anchor = AnchorStyles.Top | AnchorStyles.Right,
             Location = new Point(totalWidth - 88, 8),
             FlatStyle = FlatStyle.Flat,
+            UseVisualStyleBackColor = false,
             TabStop = false,
             Cursor = Cursors.Hand,
             Font = new Font("Segoe UI Semibold", 9f, FontStyle.Bold),
@@ -47,6 +48,8 @@ public static class PasswordRevealHelper
             Padding = new Padding(0, 0, 0, 1)
         };
         toggle.FlatAppearance.BorderSize = 0;
+        toggle.Resize += (_, _) => AppTheme.ApplyRoundedRegion(toggle, 12);
+        toggle.HandleCreated += (_, _) => AppTheme.ApplyRoundedRegion(toggle, 12);
         toggle.MouseEnter += (_, _) => toggle.ForeColor = AppTheme.Primary;
         toggle.MouseLeave += (_, _) => toggle.ForeColor = AppTheme.TextMuted;
         toggle.Click += (_, _) =>

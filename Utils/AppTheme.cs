@@ -189,6 +189,7 @@ public static class AppTheme
     public static void StylePrimaryButton(Button button, int radius = 14)
     {
         button.FlatStyle = FlatStyle.Flat;
+        button.UseVisualStyleBackColor = false;
         button.FlatAppearance.BorderSize = 0;
         button.BackColor = Primary;
         button.ForeColor = Color.White;
@@ -203,6 +204,7 @@ public static class AppTheme
     public static void StyleSecondaryButton(Button button, int radius = 14)
     {
         button.FlatStyle = FlatStyle.Flat;
+        button.UseVisualStyleBackColor = false;
         button.FlatAppearance.BorderSize = 0;
         button.BackColor = Input;
         button.ForeColor = TextPrimary;
@@ -334,6 +336,7 @@ public static class AppTheme
             Left = 22,
             Top = top,
             FlatStyle = FlatStyle.Flat,
+            UseVisualStyleBackColor = false,
             BackColor = active ? PrimarySoft : Sidebar,
             ForeColor = active ? Primary : TextPrimary,
             Cursor = Cursors.Hand,
@@ -404,14 +407,24 @@ public static class AppTheme
             return;
         }
 
-        if (control is Button)
-        {
-            control.Region = null;
-            return;
-        }
-
         using var path = RoundedRect(new Rectangle(0, 0, control.Width - 1, control.Height - 1), radius);
         control.Region = new Region(path);
+    }
+
+    public static Color ResolveParentBackColor(Control? control, Color fallback)
+    {
+        var parent = control?.Parent;
+        while (parent is not null)
+        {
+            if (parent.BackColor != Color.Transparent && parent.BackColor != Color.Empty)
+            {
+                return Color.FromArgb(255, parent.BackColor);
+            }
+
+            parent = parent.Parent;
+        }
+
+        return Color.FromArgb(255, fallback);
     }
 
     public static GraphicsPath RoundedRect(Rectangle bounds, int radius)
