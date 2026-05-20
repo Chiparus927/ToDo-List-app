@@ -34,6 +34,7 @@ Aplicatie desktop pentru gestionarea sarcinilor zilnice, construita in C# WinFor
 - `Resources/`
   - `Icons/`
   - `Images/`
+- `ToDoListApp.Tests/` — teste automate (xUnit)
 
 ## Configurare baza de date
 
@@ -51,3 +52,13 @@ dotnet run
 ```
 
 Aplicatia porneste cu `LoginForm`.
+
+## Testare automata (xUnit)
+
+Proiectul `ToDoListApp.Tests` contine teste unitare pentru `Validator` si `Helpers.HashPassword` (fara UI si fara MySQL).
+
+```bash
+dotnet test
+```
+
+Pentru a rula doar proiectul de teste: `dotnet test ToDoListApp.Tests/ToDoListApp.Tests.csproj`.

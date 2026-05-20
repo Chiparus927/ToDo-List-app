@@ -1,5 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
+    <DefaultItemExcludes>$(DefaultItemExcludes);ToDoListApp.Tests\**</DefaultItemExcludes>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows</TargetFramework>
     <UseWindowsForms>true</UseWindowsForms>
@@ -9,5 +10,9 @@
 
   <ItemGroup>
     <PackageReference Include="MySql.Data" Version="9.7.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="Resources\Images\app-logo.png" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

@@ -37,7 +37,7 @@ public class DashboardForm : Form, IThemeAware
 
     private void InitializeComponents()
     {
-        var sidebar = CreateSidebar();
+        var navBar = CreateTopNav();
         var contentPanel = new Panel
         {
             Dock = DockStyle.Fill,
@@ -47,12 +47,14 @@ public class DashboardForm : Form, IThemeAware
         contentPanel.Paint += (_, e) => PaintBackground(e.Graphics, contentPanel.ClientRectangle);
 
         var topBar = new Panel { Location = new Point(28, 0), Size = new Size(1100, 104), BackColor = AppTheme.Background };
+        var appLogo = AppTheme.CreateAppLogo(104);
+        appLogo.Location = new Point(0, -10);
         var title = new Label
         {
             Text = $"Welcome, {_user.FullName}!",
             Font = new Font("Segoe UI", 27, FontStyle.Bold),
             AutoSize = true,
-            Location = new Point(0, 0),
+            Location = new Point(122, 0),
             ForeColor = AppTheme.TextPrimary
         };
         var subtitle = new Label
@@ -60,7 +62,7 @@ public class DashboardForm : Form, IThemeAware
             Text = "My Tasks",
             Font = new Font("Segoe UI", 10.5f),
             AutoSize = true,
-            Location = new Point(4, 64),
+            Location = new Point(126, 64),
             ForeColor = AppTheme.TextMuted
         };
 
@@ -71,7 +73,7 @@ public class DashboardForm : Form, IThemeAware
 
         ConfigureUserMenuButton();
         ConfigureUserMenuPanel();
-        topBar.Controls.AddRange([title, subtitle, searchRow, _btnUserMenu]);
+        topBar.Controls.AddRange([appLogo, title, subtitle, navBar, searchRow, _btnUserMenu]);
 
         var statsPanel = new Panel { Location = new Point(28, 124), Size = new Size(1100, 112), BackColor = AppTheme.Background };
         statsPanel.Controls.AddRange([
@@ -103,7 +105,7 @@ public class DashboardForm : Form, IThemeAware
         };
         _cmbCategoryFilter.Location = new Point(16, 10);
         _cmbCategoryFilter.Width = 250;
-        _cmbCategoryFilter.BackColor = AppTheme.Surface;
+        _cmbCategoryFilter.BackColor = AppTheme.Input;
         _cmbCategoryFilter.ForeColor = AppTheme.TextPrimary;
         filterPanel.Controls.Add(_cmbCategoryFilter);
         filterBar.Controls.Add(filterPanel);
@@ -114,7 +116,7 @@ public class DashboardForm : Form, IThemeAware
             Size = new Size(1100, 420),
             Padding = new Padding(18),
             Radius = 26,
-            BackColor = AppTheme.Surface,
+            BackColor = AppTheme.ButtonNeutral,
             BorderColor = AppTheme.Border
         };
 
@@ -135,8 +137,11 @@ public class DashboardForm : Form, IThemeAware
             var w = Math.Max(520, contentPanel.ClientSize.Width - leftGap - rightGap);
             var h = contentPanel.ClientSize.Height;
             topBar.SetBounds(leftGap, 0, w, 104);
+            appLogo.BackColor = topBar.BackColor;
             _btnUserMenu.Left = Math.Max(320, w - _btnUserMenu.Width - 2);
             searchRow.Left = Math.Max(300, _btnUserMenu.Left - searchRow.Width - 16);
+            navBar.Left = title.Right + 28;
+            navBar.Top = 18;
             _userMenuPanel.Left = leftGap + Math.Max(0, _btnUserMenu.Right - _userMenuPanel.Width);
             _userMenuPanel.Top = topBar.Bottom - 4;
             statsPanel.SetBounds(leftGap, 124, w, 112);
@@ -151,38 +156,54 @@ public class DashboardForm : Form, IThemeAware
         contentPanel.Resize += (_, _) => LayoutMainArea();
         contentPanel.HandleCreated += (_, _) => LayoutMainArea();
         Controls.Add(contentPanel);
-        Controls.Add(sidebar);
     }
 
-    private Panel CreateSidebar()
+    private RoundedPanel CreateTopNav()
     {
-        var sidebar = new Panel { Dock = DockStyle.Left, Width = 332, BackColor = AppTheme.Sidebar };
-        sidebar.Controls.AddRange([
-            new Label
-            {
-                Text = "Reminders",
-                ForeColor = AppTheme.TextPrimary,
-                Font = new Font("Segoe UI", 21f, FontStyle.Bold),
-                AutoSize = true,
-                Location = new Point(30, 28)
-            },
-            new Label
-            {
-                Text = "Productivity",
-                ForeColor = AppTheme.TextMuted,
-                Font = new Font("Segoe UI", 9.5f),
-                AutoSize = true,
-                Location = new Point(32, 78)
-            },
-            AppTheme.CreateNavButton("All Tasks", 138, (_, _) => ResetFilters(), true),
-            AppTheme.CreateNavButton("Active", 192, (_, _) => SelectStatus("Active")),
-            AppTheme.CreateNavButton("Completed", 246, (_, _) => SelectStatus("Completed")),
-            AppTheme.CreateNavButton("Settings", 300, (_, _) => OpenSettings()),
-            AppTheme.CreateNavButton("+ Add task", 388, (_, _) => AddTask(), true),
-            AppTheme.CreateNavButton("Edit task", 442, (_, _) => EditTask()),
-            AppTheme.CreateNavButton("Delete task", 496, (_, _) => DeleteTask())
+        var nav = new RoundedPanel
+        {
+            Size = new Size(488, 56),
+            Radius = 24,
+            DrawShadow = false,
+            BackColor = AppTheme.Sidebar,
+            BorderColor = AppTheme.Border
+        };
+        nav.Controls.AddRange([
+            AppTheme.CreateNavButton("All", 5, (_, _) => ResetFilters(), true, "All tasks"),
+            AppTheme.CreateNavButton("Active", 5, (_, _) => SelectStatus("Active"), false, "Active"),
+            AppTheme.CreateNavButton("Done", 5, (_, _) => SelectStatus("Completed"), false, "Completed"),
+            AppTheme.CreateNavButton("Settings", 5, (_, _) => OpenSettings(), false, "Settings"),
+            AppTheme.CreateNavButton("Add", 5, (_, _) => AddTask(), true, "Add task"),
+            AppTheme.CreateNavButton("Edit", 5, (_, _) => EditTask(), false, "Edit task"),
+            AppTheme.CreateNavButton("Delete", 5, (_, _) => DeleteTask(), false, "Delete task")
         ]);
-        return sidebar;
+
+        var left = 18;
+        foreach (Button button in nav.Controls.OfType<Button>())
+        {
+            var width = button.Text switch
+            {
+                "Settings" => 92,
+                "Delete" => 78,
+                "Active" => 78,
+                _ => 64
+            };
+            width = button.Text switch
+            {
+                "Settings" => 72,
+                "Delete" => 62,
+                "Active" => 60,
+                "Done" => 58,
+                _ => 48
+            };
+            button.SetBounds(left, 8, width, 40);
+            button.Font = new Font("Segoe UI Semibold", 8.8f, FontStyle.Bold);
+            button.TextAlign = ContentAlignment.MiddleCenter;
+            button.Padding = Padding.Empty;
+            left += width + 7;
+        }
+
+        return nav;
     }
 
     private static RoundedPanel CreateStatCard(Label valueLabel, string label, Color background, Color accent, Point location)
@@ -221,14 +242,18 @@ public class DashboardForm : Form, IThemeAware
             Size = new Size(width, 40),
             FlatStyle = FlatStyle.Flat,
             UseVisualStyleBackColor = false,
-            BackColor = AppTheme.Input,
+            BackColor = AppTheme.Surface,
             ForeColor = AppTheme.TextPrimary,
             Font = new Font("Segoe UI Semibold", 9.5f, FontStyle.Bold),
             Cursor = Cursors.Hand
         };
         button.FlatAppearance.BorderSize = 0;
-        button.MouseEnter += (_, _) => button.BackColor = AppTheme.PrimarySoft;
-        button.MouseLeave += (_, _) => button.BackColor = AppTheme.Input;
+        button.MouseEnter += (_, _) => button.BackColor = AppTheme.ButtonNeutralHover;
+        button.MouseLeave += (_, _) =>
+        {
+            button.BackColor = AppTheme.ButtonNeutral;
+            button.ForeColor = AppTheme.TextPrimary;
+        };
         button.Resize += (_, _) => AppTheme.ApplyRoundedRegion(button, 15);
         button.HandleCreated += (_, _) => AppTheme.ApplyRoundedRegion(button, 15);
         button.Click += click;
@@ -297,7 +322,7 @@ public class DashboardForm : Form, IThemeAware
             Size = new Size(186, 42),
             FlatStyle = FlatStyle.Flat,
             UseVisualStyleBackColor = false,
-            BackColor = AppTheme.Input,
+            BackColor = AppTheme.ButtonNeutral,
             ForeColor = AppTheme.TextPrimary,
             Font = new Font("Segoe UI", 10.5f),
             TextAlign = ContentAlignment.MiddleLeft,
@@ -305,8 +330,12 @@ public class DashboardForm : Form, IThemeAware
             Cursor = Cursors.Hand
         };
         logout.FlatAppearance.BorderSize = 0;
-        logout.MouseEnter += (_, _) => logout.BackColor = AppTheme.PrimarySoft;
-        logout.MouseLeave += (_, _) => logout.BackColor = AppTheme.Input;
+        logout.MouseEnter += (_, _) => logout.BackColor = AppTheme.ButtonNeutralHover;
+        logout.MouseLeave += (_, _) =>
+        {
+            logout.BackColor = AppTheme.ButtonNeutral;
+            logout.ForeColor = AppTheme.TextPrimary;
+        };
         logout.Click += (_, _) => Logout();
         logout.Resize += (_, _) => AppTheme.ApplyRoundedRegion(logout, 13);
         logout.HandleCreated += (_, _) => AppTheme.ApplyRoundedRegion(logout, 13);

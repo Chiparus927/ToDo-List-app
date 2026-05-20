@@ -1,4 +1,4 @@
-using System.Drawing.Drawing2D;
+﻿using System.Drawing.Drawing2D;
 using ToDoListApp.Services;
 using ToDoListApp.Utils;
 
@@ -54,11 +54,11 @@ public class RegisterForm : Form
         };
 
         _txtFullName.PlaceholderText = "Full name";
-        var fullNameRow = AppTheme.CreateTextInputRow(_txtFullName, contentWidth, "●");
+        var fullNameRow = AppTheme.CreateTextInputRow(_txtFullName, contentWidth, "👤");
         fullNameRow.Location = new Point(contentLeft, 136);
 
         _txtEmail.PlaceholderText = "Email";
-        var emailRow = AppTheme.CreateTextInputRow(_txtEmail, contentWidth, "✉");
+        var emailRow = AppTheme.CreateTextInputRow(_txtEmail, contentWidth, "\u2709");
         emailRow.Location = new Point(contentLeft, 198);
 
         _txtPassword.PlaceholderText = "Password";
@@ -186,3 +186,5 @@ public class RegisterForm : Form
     }
 
 }
+
+

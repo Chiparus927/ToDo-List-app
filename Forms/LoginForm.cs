@@ -1,4 +1,4 @@
-using System.Drawing.Drawing2D;
+﻿using System.Drawing.Drawing2D;
 using ToDoListApp.Services;
 using ToDoListApp.Utils;
 
@@ -54,7 +54,7 @@ public class LoginForm : Form
         };
 
         _txtEmail.PlaceholderText = "Email";
-        var emailRow = AppTheme.CreateTextInputRow(_txtEmail, contentWidth, "✉");
+        var emailRow = AppTheme.CreateTextInputRow(_txtEmail, contentWidth, "\u2709");
         emailRow.Location = new Point(contentLeft, 166);
 
         _txtPassword.PlaceholderText = "Password";
@@ -140,3 +140,4 @@ public class LoginForm : Form
         dashboard.Show();
     }
 }
+

@@ -125,7 +125,7 @@ public class UserCardControl : RoundedPanel
                     badge.ForeColor = _user.IsAdmin ? AppTheme.Danger : AppTheme.Primary;
                     break;
                 case Button button:
-                    button.BackColor = AppTheme.Input;
+                    button.BackColor = AppTheme.ButtonNeutral;
                     button.ForeColor = button.Text == "Delete" ? AppTheme.Danger : AppTheme.TextPrimary;
                     break;
                 case Label label when label.Text.Length == 1:
@@ -150,14 +150,18 @@ public class UserCardControl : RoundedPanel
             Size = new Size(width, 34),
             FlatStyle = FlatStyle.Flat,
             UseVisualStyleBackColor = false,
-            BackColor = AppTheme.Input,
+            BackColor = AppTheme.ButtonNeutral,
             ForeColor = AppTheme.TextPrimary,
             Font = new Font("Segoe UI Semibold", 9f, FontStyle.Bold),
             Cursor = Cursors.Hand
         };
         button.FlatAppearance.BorderSize = 0;
-        button.MouseEnter += (_, _) => button.BackColor = AppTheme.PrimarySoft;
-        button.MouseLeave += (_, _) => button.BackColor = AppTheme.Input;
+        button.MouseEnter += (_, _) => button.BackColor = AppTheme.ButtonNeutralHover;
+        button.MouseLeave += (_, _) =>
+        {
+            button.BackColor = AppTheme.ButtonNeutral;
+            button.ForeColor = button.Text == "Delete" ? AppTheme.Danger : AppTheme.TextPrimary;
+        };
         button.Resize += (_, _) => AppTheme.ApplyRoundedRegion(button, 12);
         button.HandleCreated += (_, _) => AppTheme.ApplyRoundedRegion(button, 12);
         return button;

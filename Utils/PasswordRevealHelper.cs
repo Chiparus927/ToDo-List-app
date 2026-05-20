@@ -1,4 +1,4 @@
-namespace ToDoListApp.Utils;
+﻿namespace ToDoListApp.Utils;
 
 public static class PasswordRevealHelper
 {
@@ -14,11 +14,11 @@ public static class PasswordRevealHelper
 
         var icon = new Label
         {
-            Text = "●",
+            Text = "🔑",
             ForeColor = AppTheme.TextMuted,
-            Font = new Font("Segoe UI", 9f, FontStyle.Regular),
-            Location = new Point(17, 13),
-            Size = new Size(22, 22),
+            Font = new Font("Segoe UI Emoji", 12f, FontStyle.Regular),
+            Location = new Point(15, 8),
+            Size = new Size(28, 32),
             TextAlign = ContentAlignment.MiddleCenter
         };
 
@@ -51,7 +51,11 @@ public static class PasswordRevealHelper
         toggle.Resize += (_, _) => AppTheme.ApplyRoundedRegion(toggle, 12);
         toggle.HandleCreated += (_, _) => AppTheme.ApplyRoundedRegion(toggle, 12);
         toggle.MouseEnter += (_, _) => toggle.ForeColor = AppTheme.Primary;
-        toggle.MouseLeave += (_, _) => toggle.ForeColor = AppTheme.TextMuted;
+        toggle.MouseLeave += (_, _) =>
+        {
+            toggle.BackColor = row.BackColor;
+            toggle.ForeColor = AppTheme.TextMuted;
+        };
         toggle.Click += (_, _) =>
         {
             passwordBox.UseSystemPasswordChar = !passwordBox.UseSystemPasswordChar;
@@ -66,8 +70,8 @@ public static class PasswordRevealHelper
         row.Paint += (_, e) =>
         {
             e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-            using var path = AppTheme.RoundedRect(new Rectangle(0, 0, row.Width - 1, row.Height - 1), 18);
-            using var pen = new Pen(passwordBox.Focused ? AppTheme.Primary : Color.FromArgb(232, 235, 241), passwordBox.Focused ? 2 : 1);
+            using var path = AppTheme.RoundedRect(new Rectangle(1, 1, row.Width - 3, row.Height - 3), 17);
+            using var pen = new Pen(passwordBox.Focused ? AppTheme.TextMuted : AppTheme.Border, passwordBox.Focused ? 2 : 1);
             e.Graphics.DrawPath(pen, path);
         };
         passwordBox.GotFocus += (_, _) => row.Invalidate();
@@ -76,3 +80,4 @@ public static class PasswordRevealHelper
         return row;
     }
 }
+

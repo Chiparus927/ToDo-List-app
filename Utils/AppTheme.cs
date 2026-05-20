@@ -12,6 +12,9 @@ public static class AppTheme
     public static Color Surface { get; private set; } = Color.White;
     public static Color SoftSurface { get; private set; } = Color.FromArgb(250, 251, 253);
     public static Color Input { get; private set; } = Color.FromArgb(244, 246, 250);
+    public static Color ButtonNeutral { get; private set; } = Color.FromArgb(242, 244, 248);
+    public static Color ButtonNeutralHover { get; private set; } = Color.FromArgb(232, 236, 242);
+    public static Color SearchBackground { get; private set; } = Color.White;
     public static Color Primary { get; private set; } = Color.FromArgb(10, 132, 255);
     public static Color PrimaryHover { get; private set; } = Color.FromArgb(0, 111, 230);
     public static Color PrimarySoft { get; private set; } = Color.FromArgb(225, 240, 255);
@@ -47,6 +50,9 @@ public static class AppTheme
             Surface = Color.FromArgb(30, 30, 30);
             SoftSurface = Color.FromArgb(42, 42, 42);
             Input = Color.FromArgb(42, 45, 50);
+            ButtonNeutral = Color.FromArgb(48, 52, 60);
+            ButtonNeutralHover = Color.FromArgb(60, 66, 76);
+            SearchBackground = Color.FromArgb(38, 42, 50);
             TextPrimary = Color.FromArgb(245, 245, 247);
             TextMuted = Color.FromArgb(178, 178, 184);
             Border = Color.FromArgb(68, 68, 72);
@@ -58,6 +64,9 @@ public static class AppTheme
         Surface = Color.White;
         SoftSurface = Color.FromArgb(250, 251, 253);
         Input = Color.FromArgb(244, 246, 250);
+        ButtonNeutral = Color.FromArgb(242, 244, 248);
+        ButtonNeutralHover = Color.FromArgb(232, 236, 242);
+        SearchBackground = Color.White;
         TextPrimary = Color.FromArgb(28, 28, 30);
         TextMuted = Color.FromArgb(99, 99, 102);
         Border = Color.FromArgb(220, 224, 230);
@@ -125,6 +134,9 @@ public static class AppTheme
                 comboBox.BackColor = Input;
                 comboBox.ForeColor = TextPrimary;
                 break;
+            case PictureBox pictureBox:
+                pictureBox.BackColor = ResolveParentBackColor(pictureBox, Background);
+                break;
             case GradientButton gradientButton:
                 gradientButton.StartColor = Primary;
                 gradientButton.EndColor = PrimaryHover;
@@ -139,7 +151,7 @@ public static class AppTheme
                 }
                 else
                 {
-                    button.BackColor = Input;
+                    button.BackColor = ButtonNeutral;
                     button.ForeColor = TextPrimary;
                 }
                 break;
@@ -206,14 +218,18 @@ public static class AppTheme
         button.FlatStyle = FlatStyle.Flat;
         button.UseVisualStyleBackColor = false;
         button.FlatAppearance.BorderSize = 0;
-        button.BackColor = Input;
+        button.BackColor = ButtonNeutral;
         button.ForeColor = TextPrimary;
         button.Font = new Font("Segoe UI Semibold", 10.5f, FontStyle.Bold);
         button.Cursor = Cursors.Hand;
         button.Resize += (_, _) => ApplyRoundedRegion(button, radius);
         button.HandleCreated += (_, _) => ApplyRoundedRegion(button, radius);
-        button.MouseEnter += (_, _) => button.BackColor = PrimarySoft;
-        button.MouseLeave += (_, _) => button.BackColor = Input;
+        button.MouseEnter += (_, _) => button.BackColor = ButtonNeutralHover;
+        button.MouseLeave += (_, _) =>
+        {
+            button.BackColor = ButtonNeutral;
+            button.ForeColor = TextPrimary;
+        };
     }
 
     public static Panel CreateCard(Rectangle bounds)
@@ -301,8 +317,8 @@ public static class AppTheme
                 Text = iconText,
                 ForeColor = TextMuted,
                 Font = new Font("Segoe UI", 11.5f, FontStyle.Regular),
-                Location = new Point(17, 13),
-                Size = new Size(22, 22),
+                Location = new Point(15, 8),
+                Size = new Size(28, 32),
                 TextAlign = ContentAlignment.MiddleCenter
             });
         }
@@ -323,35 +339,72 @@ public static class AppTheme
     public static Panel CreateSearchBox(TextBox textBox, int width)
     {
         textBox.PlaceholderText = "Search";
-        return CreateTextInputRow(textBox, width, "⌕");
+        var row = CreateTextInputRow(textBox, width, "⌕");
+        row.BackColor = SearchBackground;
+        textBox.BackColor = SearchBackground;
+        return row;
     }
 
     public static Button CreateNavButton(string text, int top, EventHandler click, bool active = false)
+        => CreateNavButton(text, top, click, active, text);
+
+    public static Button CreateNavButton(string text, int top, EventHandler click, bool active, string tooltip)
     {
-        var button = new Button
+        var button = new MenuButton
         {
             Text = text,
-            Width = 300,
+            Width = text.Length <= 2 ? 56 : 300,
             Height = 46,
-            Left = 22,
+            Left = text.Length <= 2 ? 20 : 22,
             Top = top,
             FlatStyle = FlatStyle.Flat,
             UseVisualStyleBackColor = false,
             BackColor = active ? PrimarySoft : Sidebar,
             ForeColor = active ? Primary : TextPrimary,
             Cursor = Cursors.Hand,
-            Font = new Font("Segoe UI Semibold", 10.5f, active ? FontStyle.Bold : FontStyle.Regular),
-            TextAlign = ContentAlignment.MiddleLeft,
-            Padding = new Padding(18, 0, 0, 0)
+            Font = new Font(text.Length <= 2 ? "Segoe UI Symbol" : "Segoe UI Semibold", text.Length <= 2 ? 15f : 10.5f, active ? FontStyle.Bold : FontStyle.Regular),
+            TextAlign = text.Length <= 2 ? ContentAlignment.MiddleCenter : ContentAlignment.MiddleLeft,
+            Padding = text.Length <= 2 ? Padding.Empty : new Padding(18, 0, 0, 0)
         };
         button.FlatAppearance.BorderSize = 0;
+        button.TabStop = false;
         button.Resize += (_, _) => ApplyRoundedRegion(button, 15);
         button.HandleCreated += (_, _) => ApplyRoundedRegion(button, 15);
         button.MouseEnter += (_, _) => button.BackColor = active ? PrimarySoft : SoftSurface;
         button.MouseLeave += (_, _) => button.BackColor = active ? PrimarySoft : Sidebar;
         button.Click += click;
+        if (!string.IsNullOrWhiteSpace(tooltip) && tooltip != text)
+        {
+            new ToolTip().SetToolTip(button, tooltip);
+        }
         return button;
     }
+
+    public static PictureBox CreateAppLogo(int size = 58)
+    {
+        var logo = new PictureBox
+        {
+            Size = new Size(size, size),
+            BackColor = Background,
+            SizeMode = PictureBoxSizeMode.Zoom
+        };
+
+        var path = Path.Combine(AppContext.BaseDirectory, "Resources", "Images", "app-logo.png");
+        if (!File.Exists(path))
+        {
+            path = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Resources", "Images", "app-logo.png");
+        }
+
+        if (File.Exists(path))
+        {
+            using var image = Image.FromFile(path);
+            logo.Image = new Bitmap(image);
+        }
+
+        return logo;
+    }
+
+    public static PictureBox CreateSidebarLogo() => CreateAppLogo(68);
 
     public static void StyleGrid(DataGridView grid)
     {
@@ -455,8 +508,9 @@ public static class AppTheme
         {
             e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
             var focused = textBox.Focused;
-            using var path = RoundedRect(new Rectangle(0, 0, row.Width - 1, row.Height - 1), radius);
-            using var pen = new Pen(focused ? Primary : Border, focused ? 2 : 1);
+            var bounds = new Rectangle(1, 1, row.Width - 3, row.Height - 3);
+            using var path = RoundedRect(bounds, Math.Max(1, radius - 1));
+            using var pen = new Pen(focused ? TextMuted : Border, focused ? 2 : 1);
             e.Graphics.DrawPath(pen, path);
         };
         textBox.GotFocus += (_, _) => row.Invalidate();

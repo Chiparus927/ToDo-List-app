@@ -294,8 +294,8 @@ public class SettingsForm : Form, IThemeAware
             Location = new Point(28, 34),
             Size = new Size(76, 76),
             TextAlign = ContentAlignment.MiddleCenter,
-            BackColor = AppTheme.PrimarySoft,
-            ForeColor = AppTheme.Primary,
+            BackColor = AppTheme.ButtonNeutral,
+            ForeColor = TextColor,
             Font = new Font("Segoe UI", 28f, FontStyle.Bold)
         };
         logo.Resize += (_, _) => AppTheme.ApplyRoundedRegion(logo, 38);
@@ -461,14 +461,18 @@ public class SettingsForm : Form, IThemeAware
             Size = new Size(width, 40),
             FlatStyle = FlatStyle.Flat,
             UseVisualStyleBackColor = false,
-            BackColor = AppTheme.Input,
-            ForeColor = AppTheme.TextPrimary,
+            BackColor = AppTheme.PrimarySoft,
+            ForeColor = AppTheme.Primary,
             Font = new Font("Segoe UI Semibold", 9.5f, FontStyle.Bold),
             Cursor = Cursors.Hand
         };
         button.FlatAppearance.BorderSize = 0;
-        button.MouseEnter += (_, _) => button.BackColor = AppTheme.PrimarySoft;
-        button.MouseLeave += (_, _) => button.BackColor = AppTheme.Input;
+        button.MouseEnter += (_, _) => button.BackColor = AppTheme.ButtonNeutralHover;
+        button.MouseLeave += (_, _) =>
+        {
+            button.BackColor = AppTheme.ButtonNeutral;
+            button.ForeColor = TextColor;
+        };
         button.Resize += (_, _) => AppTheme.ApplyRoundedRegion(button, 14);
         button.HandleCreated += (_, _) => AppTheme.ApplyRoundedRegion(button, 14);
         return button;
@@ -738,12 +742,18 @@ public class SettingsForm : Form, IThemeAware
             Size = new Size(width, 40),
             FlatStyle = FlatStyle.Flat,
             UseVisualStyleBackColor = false,
-            BackColor = InputColor,
+            BackColor = AppTheme.ButtonNeutral,
             ForeColor = TextColor,
             Font = new Font("Segoe UI Semibold", 9.5f, FontStyle.Bold),
             Cursor = Cursors.Hand
         };
         button.FlatAppearance.BorderSize = 0;
+        button.MouseEnter += (_, _) => button.BackColor = AppTheme.ButtonNeutralHover;
+        button.MouseLeave += (_, _) =>
+        {
+            button.BackColor = AppTheme.ButtonNeutral;
+            button.ForeColor = TextColor;
+        };
         button.Resize += (_, _) => AppTheme.ApplyRoundedRegion(button, 14);
         button.HandleCreated += (_, _) => AppTheme.ApplyRoundedRegion(button, 14);
         return button;
@@ -836,7 +846,7 @@ public class SettingsForm : Form, IThemeAware
             ReadOnly = true,
             ScrollBars = ScrollBars.Vertical,
             BorderStyle = BorderStyle.FixedSingle,
-            BackColor = InputColor,
+            BackColor = Color.FromArgb(255, CardColor),
             ForeColor = TextColor,
             Font = new Font("Segoe UI", 10f),
             Text = BuildDocumentationText()
@@ -943,7 +953,7 @@ public class SettingsForm : Form, IThemeAware
                 case Button button when button.Width == 36 && button.Height == 36:
                     break;
                 case Button button:
-                    button.BackColor = InputColor;
+                    button.BackColor = AppTheme.ButtonNeutral;
                     button.ForeColor = TextColor;
                     break;
                 case Panel panel when panel.BackColor != Color.Transparent:

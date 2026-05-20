@@ -14,7 +14,6 @@ public class AdminDashboardForm : Form, IThemeAware
     private readonly RoundedPanel _listHost = new();
     private readonly Button _btnUsersTab = new();
     private readonly Button _btnTasksTab = new();
-    private readonly Button _btnSelectedUserTasksTab = new();
     private readonly Label _lblStats = new();
     private readonly Label _lblUsersValue = new();
     private readonly Label _lblAdminsValue = new();
@@ -45,7 +44,7 @@ public class AdminDashboardForm : Form, IThemeAware
 
     private void InitializeComponents()
     {
-        var sidebar = CreateSidebar();
+        var navBar = CreateTopNav();
         var contentPanel = new Panel
         {
             Dock = DockStyle.Fill,
@@ -54,15 +53,17 @@ public class AdminDashboardForm : Form, IThemeAware
         };
 
         var topBar = new Panel { Location = new Point(28, 0), Size = new Size(1100, 104), BackColor = AppTheme.Background };
+        var appLogo = AppTheme.CreateAppLogo(104);
+        appLogo.Location = new Point(0, -10);
         var title = new Label
         {
             Text = "Welcome, Administrator!",
             Font = new Font("Segoe UI", 27, FontStyle.Bold),
             AutoSize = true,
-            Location = new Point(0, 0),
+            Location = new Point(122, 0),
             ForeColor = AppTheme.TextPrimary
         };
-        _lblStats.Location = new Point(4, 64);
+        _lblStats.Location = new Point(126, 64);
         _lblStats.AutoSize = true;
         _lblStats.Font = new Font("Segoe UI", 10.5f);
         _lblStats.ForeColor = AppTheme.TextMuted;
@@ -73,7 +74,7 @@ public class AdminDashboardForm : Form, IThemeAware
         _txtSearch.TextChanged += (_, _) => ApplyAdminFilters();
         ConfigureUserMenuButton();
         ConfigureUserMenuPanel();
-        topBar.Controls.AddRange([title, _lblStats, searchRow, _btnUserMenu]);
+        topBar.Controls.AddRange([appLogo, title, _lblStats, navBar, searchRow, _btnUserMenu]);
 
         var statsPanel = new Panel { Location = new Point(28, 124), Size = new Size(1100, 112), BackColor = AppTheme.Background };
         statsPanel.Controls.AddRange([
@@ -92,7 +93,7 @@ public class AdminDashboardForm : Form, IThemeAware
         var switcher = new RoundedPanel
         {
             Location = new Point(28, 412),
-            Size = new Size(364, 48),
+            Size = new Size(234, 48),
             Radius = 18,
             BackColor = AppTheme.SoftSurface,
             DrawShadow = false,
@@ -100,14 +101,11 @@ public class AdminDashboardForm : Form, IThemeAware
         };
         ConfigureSegmentButton(_btnUsersTab, "Users", true);
         ConfigureSegmentButton(_btnTasksTab, "All tasks", false);
-        ConfigureSegmentButton(_btnSelectedUserTasksTab, "User tasks", false);
         _btnUsersTab.SetBounds(4, 4, 108, 40);
         _btnTasksTab.SetBounds(116, 4, 110, 40);
-        _btnSelectedUserTasksTab.SetBounds(230, 4, 130, 40);
         _btnUsersTab.Click += (_, _) => ShowUsersTab();
         _btnTasksTab.Click += (_, _) => ShowTasksTab();
-        _btnSelectedUserTasksTab.Click += (_, _) => ShowSelectedUserTasksTab();
-        switcher.Controls.AddRange([_btnUsersTab, _btnTasksTab, _btnSelectedUserTasksTab]);
+        switcher.Controls.AddRange([_btnUsersTab, _btnTasksTab]);
 
         _usersList.Dock = DockStyle.Fill;
         _usersList.AutoScroll = true;
@@ -137,14 +135,17 @@ public class AdminDashboardForm : Form, IThemeAware
             var w = Math.Max(560, contentPanel.ClientSize.Width - leftGap - rightGap);
             var h = contentPanel.ClientSize.Height;
             topBar.SetBounds(leftGap, 0, w, 104);
+            appLogo.BackColor = topBar.BackColor;
             _btnUserMenu.Left = Math.Max(320, w - _btnUserMenu.Width - 2);
             searchRow.Left = Math.Max(300, _btnUserMenu.Left - searchRow.Width - 16);
+            navBar.Left = Math.Max(title.Right + 24, title.Right + Math.Max(0, (searchRow.Left - title.Right - navBar.Width) / 2));
+            navBar.Top = 10;
             _userMenuPanel.Left = leftGap + Math.Max(0, _btnUserMenu.Right - _userMenuPanel.Width);
             _userMenuPanel.Top = topBar.Bottom - 4;
             statsPanel.SetBounds(leftGap, 124, w, 112);
             PositionStatCards(statsPanel, w);
             _chartPanel.SetBounds(leftGap, 258, w, 132);
-            switcher.SetBounds(leftGap, 412, 364, 48);
+            switcher.SetBounds(leftGap, 412, 234, 48);
             _listHost.SetBounds(leftGap, 476, w, Math.Max(280, h - 476));
             ResizeUserCards();
             ResizeTaskCards();
@@ -156,35 +157,43 @@ public class AdminDashboardForm : Form, IThemeAware
         contentPanel.Controls.AddRange([topBar, statsPanel, _chartPanel, switcher, _listHost, _userMenuPanel]);
 
         Controls.Add(contentPanel);
-        Controls.Add(sidebar);
     }
 
-    private Panel CreateSidebar()
+    private RoundedPanel CreateTopNav()
     {
-        var sidebar = new Panel { Dock = DockStyle.Left, Width = 332, BackColor = AppTheme.Sidebar };
-        sidebar.Controls.AddRange([
-            new Label
-            {
-                Text = "Control Center",
-                ForeColor = AppTheme.TextPrimary,
-                Font = new Font("Segoe UI", 21f, FontStyle.Bold),
-                AutoSize = true,
-                Location = new Point(30, 28)
-            },
-            new Label
-            {
-                Text = "Admin workspace",
-                ForeColor = AppTheme.TextMuted,
-                Font = new Font("Segoe UI", 9.5f),
-                AutoSize = true,
-                Location = new Point(32, 78)
-            },
-            AppTheme.CreateNavButton("Dashboard", 138, (_, _) => LoadData(), true),
-            AppTheme.CreateNavButton("User management", 192, (_, _) => _usersList.Focus()),
-            AppTheme.CreateNavButton("Recent activity", 246, (_, _) => LoadData()),
-            AppTheme.CreateNavButton("Settings", 300, (_, _) => OpenSettings())
+        var nav = new RoundedPanel
+        {
+            Size = new Size(456, 66),
+            Radius = 24,
+            DrawShadow = false,
+            BackColor = AppTheme.Sidebar,
+            BorderColor = AppTheme.Border
+        };
+        nav.Controls.AddRange([
+            AppTheme.CreateNavButton("Dashboard", 5, (_, _) => LoadData(), true, "Dashboard"),
+            AppTheme.CreateNavButton("Users", 5, (_, _) => _usersList.Focus(), false, "User management"),
+            AppTheme.CreateNavButton("Activity", 5, (_, _) => LoadData(), false, "Recent activity"),
+            AppTheme.CreateNavButton("Settings", 5, (_, _) => OpenSettings(), false, "Settings")
         ]);
-        return sidebar;
+
+        var left = 18;
+        foreach (Button button in nav.Controls.OfType<Button>())
+        {
+            var width = button.Text switch
+            {
+                "Dashboard" => 104,
+                "Settings" => 92,
+                "Activity" => 86,
+                _ => 70
+            };
+            button.SetBounds(left, 9, width, 48);
+            button.Font = new Font("Segoe UI Semibold", 9.5f, FontStyle.Bold);
+            button.TextAlign = ContentAlignment.MiddleCenter;
+            button.Padding = Padding.Empty;
+            left += width + 12;
+        }
+
+        return nav;
     }
 
     private void OpenSettings()
@@ -266,30 +275,12 @@ public class AdminDashboardForm : Form, IThemeAware
         ApplyAdminFilters();
     }
 
-    private void ShowSelectedUserTasksTab()
-    {
-        if (_selectedUser is null)
-        {
-            Helpers.ShowInfo("Select a user first.");
-            return;
-        }
-
-        _showTasks = true;
-        _showSelectedUserTasks = true;
-        _usersList.Visible = false;
-        _tasksList.Visible = true;
-        StyleTabState();
-        ApplyAdminFilters();
-    }
-
     private void StyleTabState()
     {
         _btnUsersTab.BackColor = !_showTasks ? AppTheme.Input : AppTheme.SoftSurface;
         _btnUsersTab.ForeColor = !_showTasks ? AppTheme.Primary : AppTheme.TextMuted;
         _btnTasksTab.BackColor = _showTasks && !_showSelectedUserTasks ? AppTheme.Input : AppTheme.SoftSurface;
         _btnTasksTab.ForeColor = _showTasks && !_showSelectedUserTasks ? AppTheme.Primary : AppTheme.TextMuted;
-        _btnSelectedUserTasksTab.BackColor = _showSelectedUserTasks ? AppTheme.Input : AppTheme.SoftSurface;
-        _btnSelectedUserTasksTab.ForeColor = _showSelectedUserTasks ? AppTheme.Primary : AppTheme.TextMuted;
     }
 
     private void ConfigureUserMenuButton()
@@ -376,7 +367,7 @@ public class AdminDashboardForm : Form, IThemeAware
             Size = new Size(198, 42),
             FlatStyle = FlatStyle.Flat,
             UseVisualStyleBackColor = false,
-            BackColor = AppTheme.Input,
+            BackColor = AppTheme.ButtonNeutral,
             ForeColor = AppTheme.TextPrimary,
             Font = new Font("Segoe UI", 10.5f),
             TextAlign = ContentAlignment.MiddleLeft,
@@ -384,8 +375,12 @@ public class AdminDashboardForm : Form, IThemeAware
             Cursor = Cursors.Hand
         };
         logout.FlatAppearance.BorderSize = 0;
-        logout.MouseEnter += (_, _) => logout.BackColor = AppTheme.PrimarySoft;
-        logout.MouseLeave += (_, _) => logout.BackColor = AppTheme.Input;
+        logout.MouseEnter += (_, _) => logout.BackColor = AppTheme.ButtonNeutralHover;
+        logout.MouseLeave += (_, _) =>
+        {
+            logout.BackColor = AppTheme.ButtonNeutral;
+            logout.ForeColor = AppTheme.TextPrimary;
+        };
         logout.Click += (_, _) => Application.Restart();
         logout.Resize += (_, _) => AppTheme.ApplyRoundedRegion(logout, 13);
         logout.HandleCreated += (_, _) => AppTheme.ApplyRoundedRegion(logout, 13);
@@ -554,8 +549,7 @@ public class AdminDashboardForm : Form, IThemeAware
     private void SelectUser(UserModel selected)
     {
         _selectedUser = selected;
-        _btnSelectedUserTasksTab.Text = "User tasks";
-        _lblStats.Text = $"Selected {selected.FullName}. Open User tasks to view only this user's tasks.";
+        _lblStats.Text = $"Selected {selected.FullName}. Use the Tasks button on the user card to view only this user's tasks.";
         if (_showSelectedUserTasks)
         {
             ApplyAdminFilters();
